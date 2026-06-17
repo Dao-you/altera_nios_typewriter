@@ -9,7 +9,17 @@
 #define LEDG_EEPROM_ERROR 0x20u
 #define LEDG_OVERFLOW 0x40u
 #define LEDG_DIRTY 0x80u
+#define LCD_WIDTH 16
+#define LCD_CURSOR_LEFT_CONTEXT 2
+#define LCD_CURSOR_RIGHT_CONTEXT 2
+#define LCD_CURSOR_MAX_COL (LCD_WIDTH - 1 - LCD_CURSOR_RIGHT_CONTEXT)
+#define LCD_END_MARKER "------END-------"
+/* Approximate the LCD1602 built-in cursor blink cadence in main-loop ticks. */
+#define LCD_CURSOR_BLINK_MATCH_TICKS 34u
 #define SAVE_MARQUEE_LED_COUNT 17u
+
+static int display_lcd_view_start = 0;
+static unsigned int display_end_blink_tick = 0;
 
 /**
  * Write one encoded digit to a HEX PIO.
@@ -79,60 +89,6 @@ static unsigned int display_line_progress(unsigned char current_line,
 }
 
 /**
- * Put a two-digit decimal value into a character buffer.
- */
-static void display_write_two_digits(char *dst, unsigned char value)
-{
-    if (value > 99u) {
-        value = 99u;
-    }
-    dst[0] = (char)('0' + (value / 10u));
-    dst[1] = (char)('0' + (value % 10u));
-}
-
-/**
- * Copy a short status word into the 16-character LCD status buffer.
- */
-static void display_copy_status_word(char *dst, const char *word)
-{
-    int i;
-
-    for (i = 0; word[i] != '\0' && (8 + i) < 16; ++i) {
-        dst[8 + i] = word[i];
-    }
-}
-
-/**
- * Write the second LCD line with line, cursor, and save state.
- */
-static void display_write_status_line(const EditorDocument *editor, int eeprom_error)
-{
-    char status[16];
-    int i;
-
-    for (i = 0; i < 16; ++i) {
-        status[i] = ' ';
-    }
-
-    status[0] = 'L';
-    display_write_two_digits(&status[1], (unsigned char)(editor->current_line + 1u));
-    status[3] = ' ';
-    status[4] = 'C';
-    display_write_two_digits(&status[5], editor->cursor_col);
-    status[7] = ' ';
-
-    if (eeprom_error) {
-        display_copy_status_word(status, "EEPERR");
-    } else if (editor->dirty) {
-        display_copy_status_word(status, "DIRTY");
-    } else {
-        display_copy_status_word(status, "SAVED");
-    }
-
-    lcd_write_line(1, status, 16);
-}
-
-/**
  * Initialize LCD and clear all display PIO outputs.
  */
 void display_init(void)
@@ -147,7 +103,128 @@ void display_init(void)
     display_write_hex(PIO_OUT_HEX7_BASE, seven_seg_blank());
     IOWR_ALTERA_AVALON_PIO_DATA(PIO_OUT_LEDR_BASE, 0);
     IOWR_ALTERA_AVALON_PIO_DATA(PIO_OUT_LEDG_BASE, 0);
+    display_lcd_view_start = 0;
+    display_end_blink_tick = 0;
     lcd_init();
+}
+
+/**
+ * Clamp the first visible document column for the current line.
+ */
+static int display_max_view_start(const EditorDocument *editor)
+{
+    int line_len;
+
+    line_len = editor->line_len[editor->current_line];
+    if (line_len < LCD_WIDTH) {
+        return 0;
+    }
+
+    return line_len - (LCD_WIDTH - 1);
+}
+
+static void display_clamp_view_start(const EditorDocument *editor)
+{
+    int max_start;
+
+    max_start = display_max_view_start(editor);
+    if (display_lcd_view_start < 0) {
+        display_lcd_view_start = 0;
+    }
+    if (display_lcd_view_start > max_start) {
+        display_lcd_view_start = max_start;
+    }
+}
+
+/**
+ * Move the 16-character LCD viewport only when the cursor crosses the scroll
+ * guard columns. At document ends, the cursor can reach the LCD edge.
+ */
+static int display_view_start(const EditorDocument *editor)
+{
+    int cursor;
+
+    cursor = editor->cursor_col;
+    display_clamp_view_start(editor);
+
+    if (cursor < display_lcd_view_start + LCD_CURSOR_LEFT_CONTEXT) {
+        display_lcd_view_start = cursor - LCD_CURSOR_LEFT_CONTEXT;
+    } else if (cursor > display_lcd_view_start + LCD_CURSOR_MAX_COL) {
+        display_lcd_view_start = cursor - LCD_CURSOR_MAX_COL;
+    }
+
+    display_clamp_view_start(editor);
+    return display_lcd_view_start;
+}
+
+/**
+ * Build one LCD row from a document line and a horizontal viewport.
+ */
+static void display_build_line_view(const EditorDocument *editor,
+                                    unsigned char line,
+                                    int view_start,
+                                    char *view)
+{
+    int i;
+    int col;
+
+    for (i = 0; i < LCD_WIDTH; ++i) {
+        col = view_start + i;
+        if (col >= 0 && col < editor->line_len[line]) {
+            view[i] = editor->document[line][col];
+        } else {
+            view[i] = ' ';
+        }
+    }
+}
+
+/**
+ * Return nonzero when the LCD END marker should be visible on this refresh.
+ *
+ * The marker is a UI hint rather than document text, so it blinks to avoid
+ * being mistaken for actual saved content.
+ */
+static int display_should_show_end_marker(void)
+{
+    int visible;
+
+    visible =
+        ((display_end_blink_tick / LCD_CURSOR_BLINK_MATCH_TICKS) & 0x01u) == 0u;
+    ++display_end_blink_tick;
+    return visible;
+}
+
+/**
+ * Refresh both LCD rows from the current editor viewport.
+ */
+static void display_write_editor_lines(const EditorDocument *editor)
+{
+    char view[LCD_WIDTH];
+    int view_start;
+    int cursor_col;
+
+    view_start = display_view_start(editor);
+
+    display_build_line_view(editor, editor->current_line, view_start, view);
+    lcd_write_line(0, view, LCD_WIDTH);
+
+    if (editor->current_line + 1u < editor->total_lines) {
+        display_build_line_view(editor,
+                                (unsigned char)(editor->current_line + 1u),
+                                view_start,
+                                view);
+        lcd_write_line(1, view, LCD_WIDTH);
+        display_end_blink_tick = 0;
+    } else {
+        if (display_should_show_end_marker()) {
+            lcd_write_line(1, LCD_END_MARKER, LCD_WIDTH);
+        } else {
+            lcd_write_line(1, "", 0);
+        }
+    }
+
+    cursor_col = (int)editor->cursor_col - view_start;
+    lcd_set_cursor(0, cursor_col);
 }
 
 /**
@@ -191,11 +268,7 @@ void display_update(const EditorDocument *editor,
     display_write_hex_byte(PIO_OUT_HEX1_BASE, PIO_OUT_HEX0_BASE,
                            (unsigned char)(ascii & 0x7Fu));
 
-    lcd_write_line(0,
-                   editor->document[editor->current_line],
-                   editor->line_len[editor->current_line]);
-    display_write_status_line(editor, eeprom_error);
-    lcd_set_cursor(0, editor->cursor_col);
+    display_write_editor_lines(editor);
     lcd_set_cursor_mode(editor->insert_mode);
 }
 

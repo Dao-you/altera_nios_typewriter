@@ -20,12 +20,12 @@ static unsigned int app_read_switches(void)
 }
 
 /**
- * Advance the LEDR save marquee while EEPROM writes are blocking the main loop.
+ * Advance the LEDR activity marquee while EEPROM blocks the main loop.
  *
  * The tick value is an activity animation counter only. It is intentionally
- * not shown as a save-progress value.
+ * not shown as a storage-progress value.
  */
-static void app_show_save_activity(unsigned int tick, void *context)
+static void app_show_eeprom_activity(unsigned int tick, void *context)
 {
     (void)context;
     display_save_marquee(tick);
@@ -39,7 +39,7 @@ static int app_handle_save(EditorDocument *editor)
     if (!editor->dirty) {
         return 0;
     }
-    if (eeprom_save_document_with_activity(editor, app_show_save_activity, 0)) {
+    if (eeprom_save_document_with_activity(editor, app_show_eeprom_activity, 0)) {
         editor_mark_saved(editor);
         printf("EEPROM save OK\n");
         return 0;
@@ -96,8 +96,13 @@ int main(void)
     printf("Nios II text editor starting\n");
 
     editor_init(&editor);
+    display_init();
+    app_show_eeprom_activity(0, 0);
+
     eeprom_init();
-    load_status = eeprom_load_document(&editor);
+    load_status = eeprom_load_document_with_activity(&editor,
+                                                     app_show_eeprom_activity,
+                                                     0);
     eeprom_error = (load_status == EEPROM_LOAD_ERROR);
     if (load_status == EEPROM_LOAD_OK) {
         printf("EEPROM document loaded\n");
@@ -107,7 +112,6 @@ int main(void)
         printf("EEPROM load failed; starting blank\n");
     }
 
-    display_init();
     key_init(&keys);
 
     while (1) {

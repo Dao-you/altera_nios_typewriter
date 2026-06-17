@@ -16,15 +16,21 @@ INPUTS:
 - KEY2: move right or down.
 
 OUTPUTS:
-- LCD: current editor line, status, and cursor. Insert mode uses the underline
-  cursor; overwrite mode uses the blinking block cursor.
+- LCD: current editor line and next line through a 16-column viewport. The
+  viewport scrolls on long lines after the cursor crosses the third column or
+  the third column from the right. The second LCD row blinks "------END-------"
+  near the built-in cursor blink rate on the final document line so the marker
+  is not mistaken for document text.
+  Insert mode uses the underline cursor; overwrite mode uses the blinking
+  block cursor.
 - HEX7..HEX6: current line number, decimal.
 - HEX5..HEX4: cursor column, decimal.
 - HEX3..HEX2: total line count, decimal.
 - HEX1..HEX0: current ASCII input, hexadecimal.
 - LEDR: current line progress from LEDR17 toward LEDR0; LEDR0 only lights on
-  the final document line. During EEPROM writes, LEDR17..LEDR1 temporarily show
-  a single-LED marquee as a save-activity effect, not as a progress value.
+  the final document line. During blocking EEPROM reads or writes,
+  LEDR17..LEDR1 temporarily show a single-LED marquee as an activity effect,
+  not as a progress value.
 - LEDG0: insert mode.
 - LEDG1: navigation mode.
 - LEDG5: EEPROM error.
@@ -37,6 +43,11 @@ SOURCE FILES:
 - key.c/.h: active-low key debounce and edge detection.
 - display.c/.h, lcd.c/.h, seven_seg.c/.h: board display output.
 - eeprom.c/.h: 24LC32-compatible I2C EEPROM load/save.
+
+DOCUMENT LIMITS:
+- 32 lines, up to 99 characters per line.
+- EEPROM storage format v2 is a fixed 3210-byte image:
+  magic/version, cursor metadata, line_len[32], document[32][99], checksum.
 
 BUILD NOTES:
 Use the Nios II Command Shell from Quartus II 13.1. In this local environment,

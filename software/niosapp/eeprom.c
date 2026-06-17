@@ -242,12 +242,18 @@ static int eeprom_write_bytes(unsigned int address,
 
 /**
  * Read a byte buffer using a random-read address phase and sequential reads.
+ *
+ * The optional activity callback is called at page-sized intervals so the
+ * application can show an animation while this blocking loop runs.
  */
 static int eeprom_read_bytes(unsigned int address,
                              unsigned char *data,
-                             unsigned int length)
+                             unsigned int length,
+                             EepromActivityCallback activity,
+                             void *activity_context)
 {
     unsigned int i;
+    unsigned int step;
 
     if (length == 0) {
         return 1;
@@ -267,7 +273,12 @@ static int eeprom_read_bytes(unsigned int address,
         return 0;
     }
 
+    step = 0;
     for (i = 0; i < length; ++i) {
+        if ((i & (EEPROM_PAGE_SIZE - 1u)) == 0u && activity != 0) {
+            activity(step, activity_context);
+            ++step;
+        }
         data[i] = eeprom_read_byte(i + 1u < length);
     }
     eeprom_stop();
@@ -299,9 +310,26 @@ void eeprom_init(void)
  */
 int eeprom_load_document(EditorDocument *editor)
 {
+    return eeprom_load_document_with_activity(editor, 0, 0);
+}
+
+/**
+ * Read and validate a saved editor document from EEPROM and report activity.
+ *
+ * The callback is optional. When supplied, it is used only to indicate that
+ * the blocking EEPROM read loop is active.
+ */
+int eeprom_load_document_with_activity(EditorDocument *editor,
+                                       EepromActivityCallback activity,
+                                       void *activity_context)
+{
     unsigned char buffer[EDITOR_STORAGE_SIZE];
 
-    if (!eeprom_read_bytes(0, buffer, EDITOR_STORAGE_SIZE)) {
+    if (!eeprom_read_bytes(0,
+                           buffer,
+                           EDITOR_STORAGE_SIZE,
+                           activity,
+                           activity_context)) {
         return EEPROM_LOAD_ERROR;
     }
     if (!editor_deserialize(editor, buffer, EDITOR_STORAGE_SIZE)) {

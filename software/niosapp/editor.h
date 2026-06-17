@@ -2,8 +2,8 @@
 #define EDITOR_H
 
 #define MAX_LINES 32
-#define LINE_LEN 16
-#define EDITOR_STORAGE_SIZE 554
+#define LINE_LEN 99
+#define EDITOR_STORAGE_SIZE (40 + (MAX_LINES * LINE_LEN) + 2)
 
 typedef struct {
     char document[MAX_LINES][LINE_LEN + 1];

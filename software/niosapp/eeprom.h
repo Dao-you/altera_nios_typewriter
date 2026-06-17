@@ -8,10 +8,10 @@
 #define EEPROM_LOAD_ERROR -1
 
 /**
- * Activity callback used while saving a document.
+ * Activity callback used while EEPROM load/save blocks the main loop.
  *
- * The EEPROM driver calls this during the blocking save operation. The tick
- * value is only an animation counter; it is not a save-progress percentage.
+ * The tick value is only an animation counter; it is not a storage progress
+ * percentage.
  */
 typedef void (*EepromActivityCallback)(unsigned int tick, void *context);
 
@@ -24,6 +24,13 @@ void eeprom_init(void);
  * Read and validate a saved editor document from EEPROM.
  */
 int eeprom_load_document(EditorDocument *editor);
+
+/**
+ * Read and validate a saved editor document from EEPROM and report activity.
+ */
+int eeprom_load_document_with_activity(EditorDocument *editor,
+                                       EepromActivityCallback activity,
+                                       void *activity_context);
 
 /**
  * Save the complete editor document to EEPROM.
