@@ -1,0 +1,329 @@
+# AGENTS.md
+
+本檔案是給 Codex/代理在 `D:\quartus\quartusFinalProject` 工作時使用的專案指引。請先讀本檔，再修改 Quartus、Qsys、Verilog 或 Nios II C 程式。
+
+## 專案目標
+
+本專案使用 ALTERA DE2-115 FPGA 開發板，在板上實作一個簡易文字編輯器。主架構採用 Nios II + C 語言：Qsys/Platform Designer 建立 CPU 與 Avalon PIO，C 程式負責讀取 SW/KEY、維護文件 buffer，並控制 LED、HEX、LCD 與 EEPROM。
+
+主要功能規劃：
+
+- `SW[6:0]` 輸入 7-bit ASCII。
+- `KEY1` 寫入目前 ASCII；若 ASCII 是 `0x08` 執行 BS 刪除左側字元，`0x0A` 執行 LF 換行，`0x7F` 執行 DEL 刪除游標所在字元。
+- `KEY0` 手動將目前文件存入 EEPROM。
+- `SW16` 切換 Insert / Overwrite：`0` 為 Overwrite，`1` 為 Insert。
+- `SW17` 切換移動模式：左右 / 上下。
+- `KEY3` 往前 / 往上，`KEY2` 往後 / 往下。
+- LCD 顯示目前編輯行，並顯示目前游標位置。
+- HEX 以十進位顯示目前行號、游標位置、總行數；`HEX1~HEX0` 以十六進位顯示目前 ASCII。
+- LEDR 平時顯示目前行在文件總行數中的位置，從 `LEDR17` 往 `LEDR0` 亮；只有目前行是最後一行時 `LEDR0` 才亮。
+- `KEY0` 實際寫入 EEPROM 期間，LEDR 暫時改為 `LEDR17..LEDR1` 單燈跑馬燈；這只是儲存中視覺效果，不代表儲存進度。
+- LEDG 顯示模式、overflow、unsaved 狀態。
+- 文件先存在 C 程式的 Document Buffer，後續寫入 DE2-115 板上 24LC32 類 EEPROM。
+
+## 目前狀態
+
+目前已不是空 Qsys 專案。觀察到的狀態如下：
+
+- Quartus 專案：`EP4.qpf` / `EP4.qsf`
+- Top-level entity：`top`
+- 裝置：Cyclone IV E `EP4CE115F29C7`
+- Quartus 版本紀錄：Quartus II 13.1 Web Edition
+- Qsys 系統：`nios.qsys`
+- 已產生：`nios.sopcinfo`、`nios/synthesis/nios.qip`
+- Nios II Eclipse app：`software/niosapp`
+- BSP：`software/niosapp_bsp`
+- 目前 C 程式：`software/niosapp/` 內的模組化 Nios II C editor app。
+- 最近 Quartus flow 報告顯示成功，輸出 bitstream 在 `output_files/EP4.sof`
+- 最近 Nios app-only build 成功，輸出程式為 `software/niosapp/niosapp.elf`。
+
+目前 `software/niosapp/` 已實作：
+
+- `main.c`：主迴圈讀取 `SW` / `KEY`，處理 `KEY0` 存檔、`KEY1` 寫入、`KEY2/KEY3` 移動。
+- `editor.c/.h`：固定大小 `EditorDocument`、Insert / Overwrite、BS、LF、DEL、左右上下移動、dirty / overflow flag、序列化 / 反序列化。
+- `display.c/.h`：LEDR、LEDG、HEX、LCD 更新；HEX7~HEX2 使用十進位，HEX1~HEX0 顯示 ASCII 十六進位；KEY0 存檔期間顯示 LEDR 跑馬燈。
+- `lcd.c/.h`：LCD1602 8-bit PIO bit-bang、兩行文字更新、LCD 內建 cursor 模式切換。
+- `key.c/.h`：active-low KEY 讀取、簡單 debounce、pressed-edge 偵測。
+- `eeprom.c/.h`：24LC32 類 I2C bit-bang、全文件 load/save、32-byte page write、ACK polling、儲存中 activity callback。
+- `seven_seg.c/.h`：active-low HEX 編碼與 blank。
+
+重要差異：
+
+- `top.v` 目前將 `SW[15]` 接成整個 Nios 系統的 active-low `reset_n` 來源：`SW15=0` reset，`SW15=1` run。
+- `SW16` 已保留給文字編輯器 Insert / Overwrite 模式，不要再拿來當 reset。
+- `hello_world.c` 已移除；目前 app 入口在 `main.c`。
+- 目前 `system.h` 顯示 BSP 沒有 system timer：`ALT_SYS_CLK none`。若要精準定時或中斷式 debouncing，需在 Qsys 加 Timer 並重新 Generate HDL / 更新 BSP。簡單輪詢可先用 `alt_busy_sleep()`。
+- EEPROM PIO 已存在，不是未新增狀態。
+
+## 重要目錄
+
+- `docs/initial_plan.md`：完整專題計畫，包含硬體對應、C 資料結構、開發階段與 EEPROM 儲存規劃。
+- `docs/孫培鈞112360104_初版提案.md`：初版提案摘要，可用來維持報告口徑。
+- `context/01PDF/CH07NIOS.pdf`：Nios II / Qsys 流程講義。
+- `context/05SOPC.mp4.srt`：老師建立 Nios/Qsys/Eclipse 的影片字幕，內含很多實務操作提醒。
+- `context/00BDF_HDL/`：課堂提供的 BDF/Verilog 基礎元件。
+- `context/03EEPROM/24LC32.pdf`：EEPROM datasheet。
+- `context/04LCD_DEMO/`：LCD datasheet 與 Verilog demo。
+- `hw20_CpuExample/`：CPU + PIO + Eclipse app 範例，可參考 Nios 建置流程。
+- `hw21_LcdMenu/hw21/`：LCD、EEPROM、key pulse、seven-seg 等更接近本專題的 Verilog 範例。
+- `software/niosapp/`：目前應優先修改的 Nios II C application。
+- `software/niosapp_bsp/`：BSP 產物。不要手改 generated files，Qsys 改動後用 Eclipse/Nios tools 更新。
+- `nios/`、`db/`、`incremental_db/`、`output_files/`：Quartus/Qsys 產物。除非是在重新產生或驗證，不要手改 generated output。
+
+## Qsys / BSP 現況
+
+目前 `nios.qsys` 包含：
+
+- clock source：50 MHz
+- Nios II CPU：`cpu`，tiny implementation
+- On-Chip Memory：128 KiB，base `0x00020000`
+- JTAG UART
+- System ID
+- SW input PIO：18 bit
+- KEY input PIO：4 bit
+- LEDR output PIO：18 bit
+- LEDG output PIO：8 bit
+- HEX0~HEX7 output PIO：各 8 bit
+- LCD data output PIO：8 bit
+- LCD ctrl output PIO：5 bit
+- EEPROM PIO：SCL out、SDA out、SDA output-enable、SDA in
+
+在 C 裡請使用 `software/niosapp_bsp/system.h` 實際產生的 macro 名稱，不要憑計畫文件猜 base name。此專案目前常用名稱是：
+
+- `PIO_IN_SW_BASE`
+- `PIO_IN_KEY_BASE`
+- `PIO_OUT_LEDR_BASE`
+- `PIO_OUT_LEDG_BASE`
+- `PIO_OUT_HEX0_BASE` ... `PIO_OUT_HEX7_BASE`
+- `PIO_OUT_LCD_DATA_BASE`
+- `PIO_OUT_LCD_CTRL_BASE`
+- `PIO_OUT_EEP_SCL_BASE`
+- `PIO_OUT_EEP_SDA_OUT_BASE`
+- `PIO_OUT_EEP_SDA_OE_BASE`
+- `PIO_IN_EEP_SDA_IN_BASE`
+
+若重新命名 Qsys 元件，BSP macro 會改變；C 程式必須一起更新。
+
+## Top-level 接線約定
+
+`top.v` 是 Quartus top-level，已將 Qsys `nios u0` 接到 DE2-115 腳位。修改前先讀目前版本。
+
+目前重要接線：
+
+- `CLOCK_50` 接 Qsys clock。
+- `SW[15]` 產生 `reset_n`。
+- `SW[17:0]` 全部輸入 Nios PIO；C 端使用 `SW17` 作為移動模式、`SW16` 作為 Insert / Overwrite、`SW[6:0]` 作為 ASCII。
+- `KEY[3:0]` 全部輸入 Nios PIO。
+- `LEDR[17:0]`、`LEDG[7:0]` 由 PIO 輸出。
+- HEX PIO 是 8 bit，但 `top.v` 只接 `hex*_export[6:0]` 到 `HEX*`，bit 7 可當小數點保留位或忽略。
+- LCD ctrl bit mapping：
+  - bit 0：`LCD_RS`
+  - bit 1：`LCD_RW`
+  - bit 2：`LCD_EN`
+  - bit 3：`LCD_ON`
+  - bit 4：`LCD_BLON`
+- EEPROM SDA 是 open-drain 類接法：只能 drive low 或 release high-Z，不能主動 drive high。
+- `UART_TXD` 目前固定為 `1'b1`，不要假設板上 UART 已接到 Nios。
+
+## C 程式開發約定
+
+優先在 `software/niosapp/` 內發展應用程式。若程式變大，建議拆成：
+
+- `main.c`：初始化與主迴圈
+- `editor.c` / `editor.h`：Document Buffer、insert/overwrite、BS、LF 換行、DEL、游標移動
+- `display.c` / `display.h`：LED、HEX、LCD 更新
+- `key.c` / `key.h`：active-low KEY 反相、去彈跳、edge detection
+- `eeprom.c` / `eeprom.h`：24LC32 bit-bang I2C 儲存/讀取
+- `seven_seg.c` / `seven_seg.h`：active-low 七段顯示編碼
+
+目前核心資料結構使用 `editor.h` 的固定大小 `EditorDocument`：
+
+```c
+#define MAX_LINES 32
+#define LINE_LEN  16
+#define EDITOR_STORAGE_SIZE 554
+
+typedef struct {
+    char document[MAX_LINES][LINE_LEN + 1];
+    unsigned char line_len[MAX_LINES];
+    unsigned char current_line;
+    unsigned char cursor_col;
+    unsigned char total_lines;
+    unsigned char insert_mode;
+    unsigned char dirty;
+    unsigned char overflow;
+} EditorDocument;
+```
+
+`nav_mode` 不存入 `EditorDocument`，由 `main.c` 每輪直接讀取 `SW17`。`insert_mode` 由 `main.c` 每輪讀取 `SW16` 後用 `editor_set_insert_mode()` 更新，不因切換模式設定 dirty。
+
+PIO 存取請使用 Altera HAL：
+
+```c
+#include "system.h"
+#include "altera_avalon_pio_regs.h"
+#include "priv/alt_busy_sleep.h"
+
+unsigned int sw = IORD_ALTERA_AVALON_PIO_DATA(PIO_IN_SW_BASE);
+IOWR_ALTERA_AVALON_PIO_DATA(PIO_OUT_LEDR_BASE, value);
+```
+
+KEY 在 DE2-115 上通常是 active-low。輪詢時請先反相：
+
+```c
+unsigned int keys_pressed = (~IORD_ALTERA_AVALON_PIO_DATA(PIO_IN_KEY_BASE)) & 0x0F;
+```
+
+七段顯示器通常是 active-low。`hw21_LcdMenu/hw21/seven_seg_hex.v` 和 `context/00BDF_HDL/seg7.v` 可作為編碼參考；C 版目前以 `seven_seg_encode_hex()` 產生 0~F 編碼，以 `seven_seg_blank()` 回傳 `0x7F` 作為 blank。`display.c` 對 HEX7~HEX2 使用十進位拆位後送入七段編碼，只有 HEX1~HEX0 保留十六進位顯示。
+
+## LCD 注意事項
+
+LCD 是 16x2、8-bit parallel。可參考：
+
+- `context/04LCD_DEMO/LCD1602.pdf`
+- `context/04LCD_DEMO/CFAH1602BTMCJP.pdf`
+- `context/04LCD_DEMO/LCD_Controller.v`
+- `hw21_LcdMenu/hw21/lcd_controller.v`
+- `hw21_LcdMenu/hw21/lcd_text_driver.v`
+
+LCD 常用重點：
+
+- 第一列 DDRAM address：`0x00` 到 `0x0F`，set DDRAM command 為 `0x80 | addr`。
+- 第二列 DDRAM address：`0x40` 到 `0x4F`，set DDRAM command 為 `0x80 | addr`。
+- 初始化可參考 `lcd_text_driver.v`：`0x38`、`0x38`、`0x38`、`0x0C`、`0x01`、`0x06`、`0x80`。
+- 目前 C 版用 LCD 內建 cursor 顯示編輯位置：Insert 模式使用 non-blinking underline cursor，Overwrite 模式使用 blinking block cursor。
+- Clear display / return home 需約 1.5 ms 以上，其餘 command/data 通常至少約 40 us。
+- 若用 C bit-bang，務必封裝 `lcd_write_command()`、`lcd_write_data()`、`lcd_pulse_enable()`，不要在主邏輯散落控制 bit。
+
+## EEPROM 注意事項
+
+DE2-115 板上 EEPROM 規劃以 24LC32 類 32 Kbit 裝置為準：
+
+- 容量：4K x 8 = 4096 bytes。
+- 介面：I2C / 2-wire，SCL + SDA。
+- 常見最高 clock：400 kHz。
+- control byte 格式：`1010 A2 A1 A0 R/W`，常見 base write/read 為 `0xA0` / `0xA1`。
+- 本專題 `MAX_LINES=32`、`LINE_LEN=16` 的本文約 512 bytes，加 metadata 仍小於 EEPROM 容量。
+
+可參考：
+
+- `context/03EEPROM/24LC32.pdf`
+- `hw21_LcdMenu/hw21/eeprom_i2c_16bit.v`
+
+目前 `top.v` 的 SDA open-drain 接線要求：
+
+- 要輸出 0：讓 SDA PIO drive low。
+- 要輸出 1：release SDA，不要 drive high。
+- 讀 ACK 或資料 bit 前必須 release SDA，再讀 `PIO_IN_EEP_SDA_IN_BASE`。
+
+目前 C 版已使用固定 554-byte EEPROM 儲存格式：
+
+```text
+0..1    magic: 0x54 0x45
+2       version: 0x01
+3       total_lines
+4       current_line
+5       cursor_col
+6       insert_mode
+7       reserved
+8..39   line_len[32]
+40..551 document[32][16]
+552..553 additive checksum, little-endian
+```
+
+目前 `eeprom.c` 會以 32-byte page write 儲存整份文件，並在每頁寫入後 ACK polling。內容修改後只設定 `dirty`，不自動寫 EEPROM；`KEY0` 且 dirty 時才寫入，成功後呼叫 `editor_mark_saved()` 清除 dirty，失敗則保留 dirty 並設定 EEPROM error 顯示。若 dirty 為 0，`KEY0` 會略過實際 EEPROM 寫入。
+
+`eeprom_save_document_with_activity()` 的 callback 僅用於儲存中視覺效果，不代表儲存進度。
+
+## 可重用 Verilog / 講義資源
+
+優先參考順序：
+
+1. `hw21_LcdMenu/hw21/`：最接近本專題周邊。
+2. `context/04LCD_DEMO/`：LCD demo 與 datasheet。
+3. `context/03EEPROM/`：24LC32 datasheet 與示意圖。
+4. `context/00BDF_HDL/`：基礎元件。
+5. `hw20_CpuExample/`：Nios/Qsys/Eclipse 範例。
+6. `context/01PDF/CH07NIOS.pdf` 與 `context/05SOPC.mp4.srt`：Qsys 操作流程。
+
+`context/00BDF_HDL/` 中特別值得參考：
+
+- `seg7.v` / `seg7.vhd`：七段顯示編碼。
+- `KEY_DEBOUNCE.bdf`、`key_dect.v`、`key_dect_ver2.v`：按鍵偵測。
+- `EDG_TRIG.v`、`EDGE_FALL.v`、`EDGE_RISE.v`：edge trigger。
+- `FrequencyDivider.v`、`DIV10.v`、`CLKDIV*.bdf`：除頻。
+- `CNT*.v`：counter。
+
+若功能可由 C 程式可靠完成，優先在 Nios C 實作，避免不必要新增 Verilog IP。只有在 timing、LCD/EEPROM bit-level 控制、或硬體模組更清楚時，才考慮新增 Verilog。
+
+若未來判斷 LCD、EEPROM、debounce、timer 或其他功能應改成 Verilog/Qsys/IP 並行實作，必須先提出變更計畫並與使用者確認；不要直接改硬體架構。
+
+## 建議開發流程
+
+每次改 Qsys：
+
+1. 在 Qsys/Platform Designer 修改 `nios.qsys`。
+2. 確認所有元件 clock/reset 已接上。
+3. CPU instruction master/data master 接 On-Chip Memory。
+4. CPU data master 接所有 PIO/JTAG/System ID slave。
+5. 設定 CPU Reset Vector / Exception Vector 到 On-Chip Memory。
+6. 執行 `System -> Assign Base Addresses`。
+7. Generate HDL。
+8. 回 Quartus 確認 `nios/synthesis/nios.qip` 已在專案中。
+9. 若 Qsys export interface 改變，同步更新 `top.v` instance port。
+10. Compile Quartus。
+11. 回 Nios II Eclipse 更新 BSP，確認 `system.h` macro。
+12. Build/run C application。
+
+每次改 `top.v`：
+
+1. 確認 port 名稱與 `EP4.qsf` pin assignment 完全一致。
+2. 確認 Qsys instance port 名稱和 `qsys_verilog_example.v` / generated HDL 一致。
+3. 不要破壞 `SW[15]` reset，除非同步更新 AGENTS.md 和操作說明。
+4. Compile Quartus，至少確認 analysis/synthesis 與 full flow 沒有 fatal error。
+
+每次改 C 程式：
+
+1. 先確認 `system.h` 裡的 PIO macro 名稱。
+2. 一般情況下只 build app；本機已驗證指令如下：
+
+```bash
+cd /cygdrive/d/quartus/quartusFinalProject/software/niosapp
+make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
+```
+
+3. 若真的改了 Qsys/BSP，再回 Eclipse 或 Nios tools 更新 BSP；不要手改 BSP generated files。
+4. 在 JTAG UART console 保留基本 debug output，但不要讓主迴圈大量 `printf` 影響互動。
+5. 上板驗證 SW/KEY/LED/HEX，再驗 LCD，最後驗 EEPROM。
+
+## 驗證清單
+
+最低驗證順序：
+
+- Quartus compile 成功，`output_files/EP4.sof` 更新。
+- Eclipse app build 成功，`software/niosapp/niosapp.elf` 更新。
+- JTAG UART 可執行基本 `printf`。
+- `SW[6:0]` 可讀出並在 HEX1~HEX0 顯示 ASCII hex。
+- `SW[6:0] = 0x08` 時 KEY1 執行 BS，`0x0A` 時 KEY1 執行 LF，`0x7F` 時 KEY1 執行 DEL。
+- `SW[15]` 為 reset：`0` reset，`1` run。
+- `SW[16]` 可即時切換 Overwrite / Insert，且 LEDG0 反映目前模式。
+- KEY active-low 反相與 edge detection 正確，一次按下只觸發一次。
+- HEX active-low 顯示正確，未用位可 blank。
+- LEDG0/LEDG1/LEDG6/LEDG7 狀態符合計畫。
+- LCD 初始化後能顯示固定字串，再顯示 `document[current_line]`。
+- LCD 游標在目前編輯位置；Insert 模式為底線游標，Overwrite 模式為整格閃爍游標。
+- `KEY0` 手動存檔時，`LEDR17..LEDR1` 會顯示單燈跑馬燈；這不是進度條，存檔結束後恢復目前行進度顯示。
+- `KEY0` 手動存檔後 reset/重新上電可從 EEPROM 讀回文件。
+- `HEX7~HEX6` 目前行號、`HEX5~HEX4` 游標位置、`HEX3~HEX2` 文件總行數為十進位；`HEX1~HEX0` ASCII 撥桿狀態維持十六進位。
+
+## 常見陷阱
+
+- 不要手改 `software/niosapp_bsp/system.h`；它是 generated file。
+- 改 Qsys 後若 C 找不到 base macro，通常是 BSP 沒更新或 PIO 名稱改了。
+- DE2-115 `KEY[3:0]` 是 active-low，沒反相會導致邏輯顛倒。
+- HEX 是 active-low，直接寫 binary digit 不會顯示預期數字。
+- LCD command/data timing 不能太快；clear/home 等待時間要比一般資料寫入長。
+- I2C SDA 只能 open-drain：drive low 或 release，不能 drive high。
+- 目前沒有 timer peripheral；不要寫依賴 `alt_alarm` / system clock tick 的程式，除非先加 Timer 並更新 BSP。
+- `UART_RXD` / `UART_TXD` 目前不是 Nios UART；除錯先用 JTAG UART。
+- `SW[15]` 是 reset；`SW[16]` 是 Insert / Overwrite；文字編輯器也使用 `SW[17]` 和 `SW[6:0]`。

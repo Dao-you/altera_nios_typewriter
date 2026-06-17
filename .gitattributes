@@ -1,0 +1,13 @@
+# Keep generated HDL/config files stable across Windows checkouts.
+* text=auto eol=lf
+
+*.xlsx binary
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.mp4 binary
+*.sof binary
+*.pof binary
+*.elf binary
+*.a binary

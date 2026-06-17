@@ -1,0 +1,78 @@
+# OS/editor noise
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+
+# Quartus project databases and local UI state
+/.qsys_edit/
+/db/
+/incremental_db/
+/*.qws
+/*.qdf
+/*.qpf.bak
+/*.qsf.bak
+/*.srf
+/*.smsg
+/*.summary
+/*.done
+/*.jdi
+/*.pin
+/*.sof
+/*.pof
+/*.cdf
+/*.jic
+/*.rpt
+/*.html
+/*.cmp
+/*.ddb
+/no_rev.tis_db_list.ddb
+
+# Quartus compilation output
+/output_files/
+
+# Quartus/ModelSim simulation output
+/simulation/
+/vsim.wlf
+/transcript
+/work/
+*.vcd
+*.fst
+
+# Qsys generated backups/debug byproducts
+/nios/**/*.bak
+/nios/**/*.rpt
+/nios/**/*.html
+/nios/**/*.debuginfo
+/nios/**/*.regmap
+/nios/synthesis/top.v
+/qsys_verilog_example.v
+
+# Quartus-generated symbols/examples
+/*.bsf
+
+# Nios II application build outputs
+/software/**/obj/
+/software/**/*.elf
+/software/**/*.map
+/software/**/*.objdump
+/software/**/*.a
+/software/**/*.o
+/software/**/*.d
+
+# Nios II generated dependency/status files
+/software/**/.metadata/
+/software/**/.settings/
+/software/**/Debug/
+/software/**/Release/
+/software/niosapp_bsp/HAL/
+/software/niosapp_bsp/drivers/
+/software/niosapp_bsp/summary.html
+
+# Temporary logs
+*.log
+*.tmp
+*.temp
+/tmp/
