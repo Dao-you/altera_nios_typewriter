@@ -14,7 +14,7 @@
 - `SW16` 切換 Insert / Overwrite：`0` 為 Overwrite，`1` 為 Insert。
 - `SW17` 切換移動模式：左右 / 上下。
 - `KEY3` 往前 / 往上，`KEY2` 往後 / 往下。
-- LCD 顯示目前編輯行，並顯示目前游標位置。
+- LCD 第一列顯示目前編輯行，第二列顯示下一行；若目前已是最後一行，第二列以接近 LCD 內建游標的頻率閃爍顯示 `------END-------` 標記，避免與真實文字混淆。
 - HEX 以十進位顯示目前行號、游標位置、總行數；`HEX1~HEX0` 以十六進位顯示目前 ASCII。
 - LEDR 平時顯示目前行在文件總行數中的位置，從 `LEDR17` 往 `LEDR0` 亮；只有目前行是最後一行時 `LEDR0` 才亮。
 - `KEY0` 實際寫入 EEPROM 期間，LEDR 暫時改為 `LEDR17..LEDR1` 單燈跑馬燈；這只是儲存中視覺效果，不代表儲存進度。
@@ -41,10 +41,10 @@
 
 - `main.c`：主迴圈讀取 `SW` / `KEY`，處理 `KEY0` 存檔、`KEY1` 寫入、`KEY2/KEY3` 移動。
 - `editor.c/.h`：固定大小 `EditorDocument`、Insert / Overwrite、BS、LF、DEL、左右上下移動、dirty / overflow flag、序列化 / 反序列化。
-- `display.c/.h`：LEDR、LEDG、HEX、LCD 更新；HEX7~HEX2 使用十進位，HEX1~HEX0 顯示 ASCII 十六進位；KEY0 存檔期間顯示 LEDR 跑馬燈。
+- `display.c/.h`：LEDR、LEDG、HEX、LCD 更新；HEX7~HEX2 使用十進位，HEX1~HEX0 顯示 ASCII 十六進位；LCD 以 16 欄 viewport 顯示目前行 / 下一行；最後一行的 END 標記會閃爍；EEPROM 讀寫期間顯示 LEDR 跑馬燈。
 - `lcd.c/.h`：LCD1602 8-bit PIO bit-bang、兩行文字更新、LCD 內建 cursor 模式切換。
 - `key.c/.h`：active-low KEY 讀取、簡單 debounce、pressed-edge 偵測。
-- `eeprom.c/.h`：24LC32 類 I2C bit-bang、全文件 load/save、32-byte page write、ACK polling、儲存中 activity callback。
+- `eeprom.c/.h`：24LC32 類 I2C bit-bang、全文件 load/save、32-byte page write、ACK polling、讀寫中 activity callback。
 - `seven_seg.c/.h`：active-low HEX 編碼與 blank。
 
 重要差異：
@@ -140,8 +140,8 @@
 
 ```c
 #define MAX_LINES 32
-#define LINE_LEN  16
-#define EDITOR_STORAGE_SIZE 554
+#define LINE_LEN  99
+#define EDITOR_STORAGE_SIZE (40 + (MAX_LINES * LINE_LEN) + 2)
 
 typedef struct {
     char document[MAX_LINES][LINE_LEN + 1];
@@ -192,6 +192,8 @@ LCD 常用重點：
 - 第二列 DDRAM address：`0x40` 到 `0x4F`，set DDRAM command 為 `0x80 | addr`。
 - 初始化可參考 `lcd_text_driver.v`：`0x38`、`0x38`、`0x38`、`0x0C`、`0x01`、`0x06`、`0x80`。
 - 目前 C 版用 LCD 內建 cursor 顯示編輯位置：Insert 模式使用 non-blinking underline cursor，Overwrite 模式使用 blinking block cursor。
+- 目前 LCD 第一列顯示目前行，第二列顯示下一行；長行會依游標位置水平捲動 16 欄 viewport。
+- 若目前行是文件最後一行，第二列顯示 `------END-------`，並在顯示 / 空白之間以接近 LCD 內建游標的頻率閃爍，讓它不會被誤認為文件內容。此為 C 端依主迴圈 refresh tick 的頻率近似，並未讀回 LCD 內部 blink 相位。
 - Clear display / return home 需約 1.5 ms 以上，其餘 command/data 通常至少約 40 us。
 - 若用 C bit-bang，務必封裝 `lcd_write_command()`、`lcd_write_data()`、`lcd_pulse_enable()`，不要在主邏輯散落控制 bit。
 
@@ -203,7 +205,7 @@ DE2-115 板上 EEPROM 規劃以 24LC32 類 32 Kbit 裝置為準：
 - 介面：I2C / 2-wire，SCL + SDA。
 - 常見最高 clock：400 kHz。
 - control byte 格式：`1010 A2 A1 A0 R/W`，常見 base write/read 為 `0xA0` / `0xA1`。
-- 本專題 `MAX_LINES=32`、`LINE_LEN=16` 的本文約 512 bytes，加 metadata 仍小於 EEPROM 容量。
+- 本專題目前 `MAX_LINES=32`、`LINE_LEN=99`，固定儲存格式為 3210 bytes，仍小於 24LC32 的 4096-byte 容量。
 
 可參考：
 
@@ -216,24 +218,24 @@ DE2-115 板上 EEPROM 規劃以 24LC32 類 32 Kbit 裝置為準：
 - 要輸出 1：release SDA，不要 drive high。
 - 讀 ACK 或資料 bit 前必須 release SDA，再讀 `PIO_IN_EEP_SDA_IN_BASE`。
 
-目前 C 版已使用固定 554-byte EEPROM 儲存格式：
+目前 C 版已使用固定 3210-byte EEPROM 儲存格式：
 
 ```text
 0..1    magic: 0x54 0x45
-2       version: 0x01
+2       version: 0x02
 3       total_lines
 4       current_line
 5       cursor_col
 6       insert_mode
 7       reserved
 8..39   line_len[32]
-40..551 document[32][16]
-552..553 additive checksum, little-endian
+40..3207 document[32][99]
+3208..3209 additive checksum, little-endian
 ```
 
 目前 `eeprom.c` 會以 32-byte page write 儲存整份文件，並在每頁寫入後 ACK polling。內容修改後只設定 `dirty`，不自動寫 EEPROM；`KEY0` 且 dirty 時才寫入，成功後呼叫 `editor_mark_saved()` 清除 dirty，失敗則保留 dirty 並設定 EEPROM error 顯示。若 dirty 為 0，`KEY0` 會略過實際 EEPROM 寫入。
 
-`eeprom_save_document_with_activity()` 的 callback 僅用於儲存中視覺效果，不代表儲存進度。
+`eeprom_load_document_with_activity()` / `eeprom_save_document_with_activity()` 的 callback 僅用於 EEPROM blocking 期間視覺效果，不代表讀寫進度。
 
 ## 可重用 Verilog / 講義資源
 
@@ -310,7 +312,7 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - KEY active-low 反相與 edge detection 正確，一次按下只觸發一次。
 - HEX active-low 顯示正確，未用位可 blank。
 - LEDG0/LEDG1/LEDG6/LEDG7 狀態符合計畫。
-- LCD 初始化後能顯示固定字串，再顯示 `document[current_line]`。
+- LCD 初始化後能顯示目前行與下一行；到最後一行時第二列 `------END-------` 會以接近游標的頻率閃爍。
 - LCD 游標在目前編輯位置；Insert 模式為底線游標，Overwrite 模式為整格閃爍游標。
 - `KEY0` 手動存檔時，`LEDR17..LEDR1` 會顯示單燈跑馬燈；這不是進度條，存檔結束後恢復目前行進度顯示。
 - `KEY0` 手動存檔後 reset/重新上電可從 EEPROM 讀回文件。
