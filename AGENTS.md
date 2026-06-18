@@ -20,6 +20,7 @@
 - `KEY0` 實際寫入 EEPROM 期間，LEDR 暫時改為 `LEDR17..LEDR1` 單燈跑馬燈；這只是儲存中視覺效果，不代表儲存進度。
 - LEDG 顯示模式、目前 LCD 視窗右側是否還有未顯示內容、unsaved 狀態。
 - 文件先存在 C 程式的 Document Buffer，後續寫入 DE2-115 板上 24LC32 類 EEPROM。
+- PS/2 鍵盤由 Verilog 接收 scan code 並轉成 ASCII / editor control byte，透過 Qsys PIO FIFO 介面交給 Nios II C 程式，原本 SW/KEY 測試輸入仍保留。
 
 ## 目前狀態
 
@@ -34,6 +35,7 @@
 - Nios II Eclipse app：`software/niosapp`
 - BSP：`software/niosapp_bsp`
 - 目前 C 程式：`software/niosapp/` 內的模組化 Nios II C editor app。
+- 目前 PS/2 Verilog 模組在專案根目錄：`ps2_keyboard_controller.v`、`ps2_receiver.v`、`ps2_scancode_parser.v`、`ps2_ascii_mapper.v`、`keyboard_fifo.v`、`keyboard_pio_interface.v`。
 - 最近 Quartus flow 報告顯示成功，輸出 bitstream 在 `output_files/EP4.sof`
 - 最近 Nios app-only build 成功，輸出程式為 `software/niosapp/niosapp.elf`。
 
@@ -44,6 +46,7 @@
 - `display.c/.h`：LEDR、LEDG、HEX、LCD 更新；HEX7~HEX2 使用十進位，HEX1~HEX0 顯示 ASCII 十六進位；LCD 以 16 欄 viewport 顯示目前行 / 下一行；最後一行的 END 標記會閃爍；EEPROM 讀寫期間顯示 LEDR 跑馬燈。
 - `lcd.c/.h`：LCD1602 8-bit PIO bit-bang、兩行文字更新、LCD 內建 cursor 模式切換。
 - `key.c/.h`：active-low KEY 讀取、簡單 debounce、pressed-edge 偵測。
+- `keyboard.c/.h`：讀取 Verilog PS/2 keyboard FIFO PIO，將 decoded byte 交回現有 editor action。
 - `eeprom.c/.h`：24LC32 類 I2C bit-bang、全文件 load/save、32-byte page write、ACK polling、讀寫中 activity callback。
 - `seven_seg.c/.h`：active-low HEX 編碼與 blank。
 
@@ -54,6 +57,7 @@
 - `hello_world.c` 已移除；目前 app 入口在 `main.c`。
 - 目前 `system.h` 顯示 BSP 沒有 system timer：`ALT_SYS_CLK none`。若要精準定時或中斷式 debouncing，需在 Qsys 加 Timer 並重新 Generate HDL / 更新 BSP。簡單輪詢可先用 `alt_busy_sleep()`。
 - EEPROM PIO 已存在，不是未新增狀態。
+- PS/2 keyboard PIO 已由 Qsys 新增，但 Qsys 重新 Generate HDL 後仍必須更新 Nios BSP，否則 `system.h` 內 PIO base address 會停在舊版而導致 C 程式寫錯外設。
 
 ## 重要目錄
 
@@ -87,9 +91,13 @@
 - LCD data output PIO：8 bit
 - LCD ctrl output PIO：5 bit
 - EEPROM PIO：SCL out、SDA out、SDA output-enable、SDA in
+- PS/2 keyboard PIO：keyboard data in 8 bit、keyboard status in 8 bit、keyboard ack out 1 bit
 
 在 C 裡請使用 `software/niosapp_bsp/system.h` 實際產生的 macro 名稱，不要憑計畫文件猜 base name。此專案目前常用名稱是：
 
+- `PIO_IN_KEYBOARD_DATA_BASE`
+- `PIO_IN_KEYBOARD_STATUS_BASE`
+- `PIO_OUT_KEYBOARD_ACK_BASE`
 - `PIO_IN_SW_BASE`
 - `PIO_IN_KEY_BASE`
 - `PIO_OUT_LEDR_BASE`
@@ -112,6 +120,7 @@
 
 - `CLOCK_50` 接 Qsys clock。
 - `SW[15]` 產生 `reset_n`。
+- `PS2_CLK` / `PS2_DAT` 接 `ps2_keyboard_controller`，再以 keyboard data/status/ack PIO 對接 Nios。
 - `SW[17:0]` 全部輸入 Nios PIO；C 端使用 `SW17` 作為移動模式、`SW16` 作為 Insert / Overwrite、`SW[6:0]` 作為 ASCII。
 - `KEY[3:0]` 全部輸入 Nios PIO。
 - `LEDR[17:0]`、`LEDG[7:0]` 由 PIO 輸出。
@@ -124,6 +133,7 @@
   - bit 4：`LCD_BLON`
 - EEPROM SDA 是 open-drain 類接法：只能 drive low 或 release high-Z，不能主動 drive high。
 - `UART_TXD` 目前固定為 `1'b1`，不要假設板上 UART 已接到 Nios。
+- `keyboard_status` bit 0 表示 FIFO 有資料，bit 1 表示 FIFO full，bit 2 表示 FIFO overflow/error；C 端讀完 `keyboard_data` 後 pulse `keyboard_ack` 取下一筆。
 
 ## C 程式開發約定
 
@@ -133,6 +143,7 @@
 - `editor.c` / `editor.h`：Document Buffer、insert/overwrite、BS、LF 換行、DEL、游標移動
 - `display.c` / `display.h`：LED、HEX、LCD 更新
 - `key.c` / `key.h`：active-low KEY 反相、去彈跳、edge detection
+- `keyboard.c` / `keyboard.h`：PS/2 decoded byte PIO 讀取與 ack pulse
 - `eeprom.c` / `eeprom.h`：24LC32 bit-bang I2C 儲存/讀取
 - `seven_seg.c` / `seven_seg.h`：active-low 七段顯示編碼
 
@@ -155,6 +166,8 @@ typedef struct {
 ```
 
 `nav_mode` 不存入 `EditorDocument`，由 `main.c` 每輪直接讀取 `SW17`。`insert_mode` 由 `main.c` 每輪讀取 `SW16` 後用 `editor_set_insert_mode()` 更新，不因切換模式設定 dirty。
+
+PS/2 鍵盤輸入不直接修改 `EditorDocument` 結構。Verilog mapper 輸出 printable ASCII、`0x08` Backspace、`0x0A` Enter/LF、`0x7F` Delete；方向鍵使用 `keyboard.h` 的 internal control byte `0x80..0x83`，由 `main.c` dispatch 成 `editor_move_left/right/up/down()`。
 
 PIO 存取請使用 Altera HAL：
 
@@ -276,6 +289,15 @@ DE2-115 板上 EEPROM 規劃以 24LC32 類 32 Kbit 裝置為準：
 11. 回 Nios II Eclipse 更新 BSP，確認 `system.h` macro。
 12. Build/run C application。
 
+PS/2 Verilog 相關檔案若尚未在 Quartus GUI 中出現，需加入以下 project files：
+
+- `ps2_keyboard_controller.v`
+- `ps2_receiver.v`
+- `ps2_scancode_parser.v`
+- `ps2_ascii_mapper.v`
+- `keyboard_fifo.v`
+- `keyboard_pio_interface.v`
+
 每次改 `top.v`：
 
 1. 確認 port 名稱與 `EP4.qsf` pin assignment 完全一致。
@@ -313,6 +335,8 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - LEDG0/LEDG1/LEDG6/LEDG7 狀態符合計畫；LEDG6 只在目前 LCD 視窗右側仍有當前行文字未顯示時亮。
 - LCD 初始化後能顯示目前行與下一行；到最後一行時第二列 `------END-------` 會以接近游標的頻率閃爍。
 - LCD 游標在目前編輯位置；Insert 模式為底線游標，Overwrite 模式為整格閃爍游標。
+- PS/2 鍵盤可輸入英文字母、數字、空白與常用標點；Shift/Caps Lock 會影響大小寫，Shift 會產生符號。
+- PS/2 Enter / Backspace / Delete 分別觸發 LF、BS、DEL；方向鍵觸發游標左、右、上、下移動。
 - `KEY0` 手動存檔時，`LEDR17..LEDR1` 會顯示單燈跑馬燈；這不是進度條，存檔結束後恢復目前行進度顯示。
 - `KEY0` 手動存檔後 reset/重新上電可從 EEPROM 讀回文件。
 - `HEX7~HEX6` 目前行號、`HEX5~HEX4` 游標位置、`HEX3~HEX2` 文件總行數為十進位；`HEX1~HEX0` ASCII 撥桿狀態維持十六進位。
@@ -328,3 +352,4 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - 目前沒有 timer peripheral；不要寫依賴 `alt_alarm` / system clock tick 的程式，除非先加 Timer 並更新 BSP。
 - `UART_RXD` / `UART_TXD` 目前不是 Nios UART；除錯先用 JTAG UART。
 - `SW[15]` 是 reset；`SW[16]` 是 Insert / Overwrite；文字編輯器也使用 `SW[17]` 和 `SW[6:0]`。
+- Qsys 新增或重新排序 PIO 後一定要更新 BSP；只重新 Generate HDL 不會更新 `software/niosapp_bsp/system.h`。

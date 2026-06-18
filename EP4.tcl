@@ -124,3 +124,8 @@ set_location_assignment PIN_E14 -to EEP_I2C_SDAT
 set_location_assignment	PIN_G12	-to	UART_RXD
 set_location_assignment	PIN_G9	-to	UART_TXD
 
+# PS/2 Keyboard
+set_location_assignment PIN_G6 -to PS2_CLK
+set_location_assignment PIN_H5 -to PS2_DAT
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to PS2_CLK
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to PS2_DAT

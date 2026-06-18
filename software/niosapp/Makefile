@@ -142,11 +142,12 @@ ACDS_VERSION := 13.1
 ELF := niosapp.elf
 
 # Paths to C, C++, and assembly source files.
-C_SRCS += main.c editor.c key.c display.c lcd.c seven_seg.c eeprom.c
+C_SRCS += main.c editor.c key.c display.c lcd.c seven_seg.c eeprom.c keyboard.c
 C_SRCS += display.c
 C_SRCS += editor.c
 C_SRCS += eeprom.c
 C_SRCS += key.c
+C_SRCS += keyboard.c
 C_SRCS += lcd.c
 C_SRCS += main.c
 C_SRCS += seven_seg.c

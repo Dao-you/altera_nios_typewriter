@@ -20,6 +20,8 @@ module top (
     output        LCD_BLON,
     output        EEP_I2C_SCLK,
     inout         EEP_I2C_SDAT,
+    input         PS2_CLK,
+    input         PS2_DAT,
     input         UART_RXD,
     output        UART_TXD
 );
@@ -40,6 +42,10 @@ module top (
     wire eep_sda_oe;
     wire eep_sda_out;
     wire eep_scl;
+
+    wire [7:0] keyboard_data_export;
+    wire [7:0] keyboard_status_export;
+    wire keyboard_ack_export;
 
     wire reset_n;
 
@@ -69,6 +75,16 @@ module top (
 
     assign UART_TXD = 1'b1;
 
+    ps2_keyboard_controller keyboard0 (
+        .clk(CLOCK_50),
+        .reset_n(reset_n),
+        .ps2_clk(PS2_CLK),
+        .ps2_dat(PS2_DAT),
+        .keyboard_ack(keyboard_ack_export),
+        .keyboard_data(keyboard_data_export),
+        .keyboard_status(keyboard_status_export)
+    );
+
     nios u0 (
         .clk_clk                                        (CLOCK_50),
         .reset_reset_n                                  (reset_n),
@@ -89,7 +105,10 @@ module top (
         .pio_out_ledg_external_connection_export        (LEDG),
         .pio_out_ledr_external_connection_export        (LEDR),
         .pio_in_key_external_connection_export          (KEY),
-        .pio_in_sw_external_connection_export           (SW)
+        .pio_in_sw_external_connection_export           (SW),
+        .pio_in_keyboard_data_external_connection_export (keyboard_data_export),
+        .pio_in_keyboard_status_external_connection_export (keyboard_status_export),
+        .pio_out_keyboard_ack_external_connection_export (keyboard_ack_export)
     );
 
 endmodule

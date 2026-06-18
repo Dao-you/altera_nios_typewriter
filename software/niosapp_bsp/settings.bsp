@@ -2,8 +2,8 @@
 <sch:Settings xmlns:sch="http://www.altera.com/embeddedsw/bsp/schema">
         <BspType>hal</BspType>
         <BspVersion>default</BspVersion>
-        <BspGeneratedTimeStamp>Jun 18, 2026 5:39:42 AM</BspGeneratedTimeStamp>
-        <BspGeneratedUnixTimeStamp>1781732382325</BspGeneratedUnixTimeStamp>
+        <BspGeneratedTimeStamp>2026/6/18 下午 02:37:47</BspGeneratedTimeStamp>
+        <BspGeneratedUnixTimeStamp>1781764667676</BspGeneratedUnixTimeStamp>
         <BspGeneratedLocation>D:\quartus\quartusFinalProject\software\niosapp_bsp</BspGeneratedLocation>
         <BspSettingsFile>settings.bsp</BspSettingsFile>
         <SopcDesignFile>D:\quartus\quartusFinalProject\nios.sopcinfo</SopcDesignFile>
@@ -869,122 +869,140 @@
                 <attributes>memory</attributes>
         </MemoryMap>
         <MemoryMap>
-                <slaveDescriptor>pio_in_eep_sda_in</slaveDescriptor>
+                <slaveDescriptor>pio_out_keyboard_ack</slaveDescriptor>
                 <addressRange>0x00041000 - 0x0004100F</addressRange>
                 <addressSpan>16</addressSpan>
                 <attributes/>
         </MemoryMap>
         <MemoryMap>
-                <slaveDescriptor>pio_out_eep_sda_oe</slaveDescriptor>
+                <slaveDescriptor>pio_in_keyboard_status</slaveDescriptor>
                 <addressRange>0x00041010 - 0x0004101F</addressRange>
                 <addressSpan>16</addressSpan>
                 <attributes/>
         </MemoryMap>
         <MemoryMap>
-                <slaveDescriptor>pio_out_eep_sda_out</slaveDescriptor>
+                <slaveDescriptor>pio_in_keyboard_data</slaveDescriptor>
                 <addressRange>0x00041020 - 0x0004102F</addressRange>
                 <addressSpan>16</addressSpan>
                 <attributes/>
         </MemoryMap>
         <MemoryMap>
-                <slaveDescriptor>pio_out_eep_scl</slaveDescriptor>
+                <slaveDescriptor>pio_in_eep_sda_in</slaveDescriptor>
                 <addressRange>0x00041030 - 0x0004103F</addressRange>
                 <addressSpan>16</addressSpan>
                 <attributes/>
         </MemoryMap>
         <MemoryMap>
-                <slaveDescriptor>pio_out_lcd_ctrl</slaveDescriptor>
+                <slaveDescriptor>pio_out_eep_sda_oe</slaveDescriptor>
                 <addressRange>0x00041040 - 0x0004104F</addressRange>
                 <addressSpan>16</addressSpan>
                 <attributes/>
         </MemoryMap>
         <MemoryMap>
-                <slaveDescriptor>pio_out_lcd_data</slaveDescriptor>
+                <slaveDescriptor>pio_out_eep_sda_out</slaveDescriptor>
                 <addressRange>0x00041050 - 0x0004105F</addressRange>
                 <addressSpan>16</addressSpan>
                 <attributes/>
         </MemoryMap>
         <MemoryMap>
-                <slaveDescriptor>pio_out_hex7</slaveDescriptor>
+                <slaveDescriptor>pio_out_eep_scl</slaveDescriptor>
                 <addressRange>0x00041060 - 0x0004106F</addressRange>
                 <addressSpan>16</addressSpan>
                 <attributes/>
         </MemoryMap>
         <MemoryMap>
-                <slaveDescriptor>pio_out_hex6</slaveDescriptor>
+                <slaveDescriptor>pio_out_lcd_ctrl</slaveDescriptor>
                 <addressRange>0x00041070 - 0x0004107F</addressRange>
                 <addressSpan>16</addressSpan>
                 <attributes/>
         </MemoryMap>
         <MemoryMap>
-                <slaveDescriptor>pio_out_hex5</slaveDescriptor>
+                <slaveDescriptor>pio_out_lcd_data</slaveDescriptor>
                 <addressRange>0x00041080 - 0x0004108F</addressRange>
                 <addressSpan>16</addressSpan>
                 <attributes/>
         </MemoryMap>
         <MemoryMap>
-                <slaveDescriptor>pio_out_hex4</slaveDescriptor>
+                <slaveDescriptor>pio_out_hex7</slaveDescriptor>
                 <addressRange>0x00041090 - 0x0004109F</addressRange>
                 <addressSpan>16</addressSpan>
                 <attributes/>
         </MemoryMap>
         <MemoryMap>
-                <slaveDescriptor>pio_out_hex3</slaveDescriptor>
+                <slaveDescriptor>pio_out_hex6</slaveDescriptor>
                 <addressRange>0x000410A0 - 0x000410AF</addressRange>
                 <addressSpan>16</addressSpan>
                 <attributes/>
         </MemoryMap>
         <MemoryMap>
-                <slaveDescriptor>pio_out_hex2</slaveDescriptor>
+                <slaveDescriptor>pio_out_hex5</slaveDescriptor>
                 <addressRange>0x000410B0 - 0x000410BF</addressRange>
                 <addressSpan>16</addressSpan>
                 <attributes/>
         </MemoryMap>
         <MemoryMap>
-                <slaveDescriptor>pio_out_hex1</slaveDescriptor>
+                <slaveDescriptor>pio_out_hex4</slaveDescriptor>
                 <addressRange>0x000410C0 - 0x000410CF</addressRange>
                 <addressSpan>16</addressSpan>
                 <attributes/>
         </MemoryMap>
         <MemoryMap>
-                <slaveDescriptor>pio_out_hex0</slaveDescriptor>
+                <slaveDescriptor>pio_out_hex3</slaveDescriptor>
                 <addressRange>0x000410D0 - 0x000410DF</addressRange>
                 <addressSpan>16</addressSpan>
                 <attributes/>
         </MemoryMap>
         <MemoryMap>
-                <slaveDescriptor>pio_out_ledg</slaveDescriptor>
+                <slaveDescriptor>pio_out_hex2</slaveDescriptor>
                 <addressRange>0x000410E0 - 0x000410EF</addressRange>
                 <addressSpan>16</addressSpan>
                 <attributes/>
         </MemoryMap>
         <MemoryMap>
-                <slaveDescriptor>pio_out_ledr</slaveDescriptor>
+                <slaveDescriptor>pio_out_hex1</slaveDescriptor>
                 <addressRange>0x000410F0 - 0x000410FF</addressRange>
                 <addressSpan>16</addressSpan>
                 <attributes/>
         </MemoryMap>
         <MemoryMap>
-                <slaveDescriptor>pio_in_key</slaveDescriptor>
+                <slaveDescriptor>pio_out_hex0</slaveDescriptor>
                 <addressRange>0x00041100 - 0x0004110F</addressRange>
                 <addressSpan>16</addressSpan>
                 <attributes/>
         </MemoryMap>
         <MemoryMap>
-                <slaveDescriptor>pio_in_sw</slaveDescriptor>
+                <slaveDescriptor>pio_out_ledg</slaveDescriptor>
                 <addressRange>0x00041110 - 0x0004111F</addressRange>
                 <addressSpan>16</addressSpan>
                 <attributes/>
         </MemoryMap>
         <MemoryMap>
+                <slaveDescriptor>pio_out_ledr</slaveDescriptor>
+                <addressRange>0x00041120 - 0x0004112F</addressRange>
+                <addressSpan>16</addressSpan>
+                <attributes/>
+        </MemoryMap>
+        <MemoryMap>
+                <slaveDescriptor>pio_in_key</slaveDescriptor>
+                <addressRange>0x00041130 - 0x0004113F</addressRange>
+                <addressSpan>16</addressSpan>
+                <attributes/>
+        </MemoryMap>
+        <MemoryMap>
+                <slaveDescriptor>pio_in_sw</slaveDescriptor>
+                <addressRange>0x00041140 - 0x0004114F</addressRange>
+                <addressSpan>16</addressSpan>
+                <attributes/>
+        </MemoryMap>
+        <MemoryMap>
                 <slaveDescriptor>sysid_qsys</slaveDescriptor>
-                <addressRange>0x00041120 - 0x00041127</addressRange>
+                <addressRange>0x00041150 - 0x00041157</addressRange>
                 <addressSpan>8</addressSpan>
                 <attributes/>
         </MemoryMap>
         <MemoryMap>
                 <slaveDescriptor>jtag_uart</slaveDescriptor>
-                <addressRange>0x00041128 - 0x0004112F</addressRange>
+                <addressRange>0x00041158 - 0x0004115F</addressRange>
                 <addressSpan>8</addressSpan>
                 <attributes>printable</attributes>
         </MemoryMap>

@@ -6,8 +6,10 @@
 #include "editor.h"
 #include "eeprom.h"
 #include "key.h"
+#include "keyboard.h"
 
 #define MAIN_LOOP_DELAY_US 10000
+#define KEYBOARD_DRAIN_LIMIT 16
 #define SW_INSERT_MASK 0x00010000u
 #define SW_NAV_MASK 0x00020000u
 
@@ -81,6 +83,47 @@ static void app_handle_keys(EditorDocument *editor,
 }
 
 /**
+ * Dispatch one decoded PS/2 keyboard byte to the existing editor actions.
+ */
+static void app_handle_keyboard_code(EditorDocument *editor, unsigned char code)
+{
+    switch (code) {
+    case KEYBOARD_CODE_LEFT:
+        editor_move_left(editor);
+        break;
+    case KEYBOARD_CODE_RIGHT:
+        editor_move_right(editor);
+        break;
+    case KEYBOARD_CODE_UP:
+        editor_move_up(editor);
+        break;
+    case KEYBOARD_CODE_DOWN:
+        editor_move_down(editor);
+        break;
+    default:
+        if (code < 0x80u) {
+            editor_write_ascii(editor, code);
+        }
+        break;
+    }
+}
+
+/**
+ * Drain the small hardware FIFO so typed characters reach the editor quickly.
+ */
+static void app_handle_keyboard(EditorDocument *editor)
+{
+    unsigned char code;
+    unsigned int count;
+
+    count = 0;
+    while (count < KEYBOARD_DRAIN_LIMIT && keyboard_read(&code)) {
+        app_handle_keyboard_code(editor, code);
+        ++count;
+    }
+}
+
+/**
  * Start the text editor application and keep polling SW/KEY forever.
  */
 int main(void)
@@ -113,6 +156,7 @@ int main(void)
     }
 
     key_init(&keys);
+    keyboard_init();
 
     while (1) {
         switches = app_read_switches();
@@ -122,6 +166,7 @@ int main(void)
 
         key_update(&keys);
         app_handle_keys(&editor, &keys, ascii, nav_mode, &eeprom_error);
+        app_handle_keyboard(&editor);
         display_update(&editor, ascii, nav_mode, eeprom_error);
 
         alt_busy_sleep(MAIN_LOOP_DELAY_US);
