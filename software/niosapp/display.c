@@ -194,16 +194,20 @@ static int display_should_show_end_marker(void)
     return visible;
 }
 
+static int display_line_has_hidden_right(const EditorDocument *editor,
+                                         int view_start)
+{
+    return editor->line_len[editor->current_line] > view_start + LCD_WIDTH;
+}
+
 /**
  * Refresh both LCD rows from the current editor viewport.
  */
-static void display_write_editor_lines(const EditorDocument *editor)
+static void display_write_editor_lines(const EditorDocument *editor,
+                                       int view_start)
 {
     char view[LCD_WIDTH];
-    int view_start;
     int cursor_col;
-
-    view_start = display_view_start(editor);
 
     display_build_line_view(editor, editor->current_line, view_start, view);
     lcd_write_line(0, view, LCD_WIDTH);
@@ -236,6 +240,9 @@ void display_update(const EditorDocument *editor,
                     int eeprom_error)
 {
     unsigned int ledg;
+    int view_start;
+
+    view_start = display_view_start(editor);
 
     ledg = 0;
     if (editor->insert_mode) {
@@ -247,7 +254,7 @@ void display_update(const EditorDocument *editor,
     if (eeprom_error) {
         ledg |= LEDG_EEPROM_ERROR;
     }
-    if (editor->overflow) {
+    if (display_line_has_hidden_right(editor, view_start)) {
         ledg |= LEDG_OVERFLOW;
     }
     if (editor->dirty) {
@@ -268,7 +275,7 @@ void display_update(const EditorDocument *editor,
     display_write_hex_byte(PIO_OUT_HEX1_BASE, PIO_OUT_HEX0_BASE,
                            (unsigned char)(ascii & 0x7Fu));
 
-    display_write_editor_lines(editor);
+    display_write_editor_lines(editor, view_start);
     lcd_set_cursor_mode(editor->insert_mode);
 }
 

@@ -13,7 +13,6 @@ typedef struct {
     unsigned char total_lines;
     unsigned char insert_mode;
     unsigned char dirty;
-    unsigned char overflow;
 } EditorDocument;
 
 /**
@@ -28,8 +27,9 @@ void editor_set_insert_mode(EditorDocument *editor, int insert_mode);
 
 /**
  * Write an ASCII byte or supported control byte at the cursor.
- * BS deletes the previous character, LF creates a new line, and DEL deletes
- * the character under the cursor. Returns 1 when the document changes.
+ * BS deletes the previous character or previous LF, LF creates a new line,
+ * and DEL deletes the character under the cursor. Returns 1 when the document
+ * changes.
  */
 int editor_write_ascii(EditorDocument *editor, unsigned char ascii);
 

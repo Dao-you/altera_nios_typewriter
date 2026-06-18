@@ -52,7 +52,7 @@ EEPROM 儲存
 | `LEDG0`      | Insert / Overwrite 狀態 | 反映 `SW16`，`0`：Overwrite，`1`：Insert |
 | `LEDG1`      | 移動模式狀態                | `0`：左右，`1`：上下                 |
 | `LEDG5`      | EEPROM error          | EEPROM 讀取或存檔失敗                 |
-| `LEDG6`      | Line overflow         | 目前行已滿或文件已達最大行數                |
+| `LEDG6`      | LCD 右側未顯示提示         | 目前 LCD 視窗右側仍有當前行文字未顯示           |
 | `LEDG7`      | Unsaved 狀態            | 文件內容已修改但尚未完成儲存                |
 
 ---
@@ -98,7 +98,6 @@ int insert_mode = 0;
 int nav_mode = 0;
 
 int dirty_flag = 0;
-int overflow_flag = 0;
 ```
 
 其中：
@@ -113,7 +112,8 @@ int overflow_flag = 0;
 | `insert_mode`   | Insert / Overwrite 模式 |
 | `nav_mode`      | 左右 / 上下移動模式           |
 | `dirty_flag`    | 是否有未儲存修改              |
-| `overflow_flag` | 是否發生行滿或文件滿            |
+
+`LEDG6` 不由文件資料結構儲存，而是在顯示層依目前 LCD viewport 起點與目前行長度即時計算：若目前行右側仍有文字未顯示，則亮燈。
 
 ---
 
@@ -189,12 +189,7 @@ int overflow_flag = 0;
 | Overwrite | 直接覆蓋目前游標位置的字元      |
 | Insert    | 在目前游標位置插入字元，後方字元右移 |
 
-若目前行已滿，則：
-
-```text
-overflow_flag = 1
-LEDG6 = 1
-```
+若目前行已滿，寫入失敗且不改動文件內容。`LEDG6` 不代表行滿或文件滿；它只表示目前 LCD 視窗右側仍有當前行文字未顯示。
 
 LCD 游標顯示：
 
@@ -321,7 +316,7 @@ LCD cursor 會放在 `document[current_line][cursor_col]` 的位置。Insert 模
 | `LEDG0`      | Insert / Overwrite |
 | `LEDG1`      | 左右 / 上下移動          |
 | `LEDG5`      | EEPROM error       |
-| `LEDG6`      | Line overflow      |
+| `LEDG6`      | 目前 LCD 視窗右側仍有當前行文字未顯示 |
 | `LEDG7`      | Unsaved            |
 
 ---
@@ -371,7 +366,7 @@ LCD cursor 會放在 `document[current_line][cursor_col]` 的位置。Insert 模
 2. 支援 current_line 上下移動
 3. HEX 以十進位顯示行號、字元位置、總行數，並以十六進位顯示 ASCII 輸入值
 4. LEDR 顯示目前行 / 文件總行數進度條，最後一行才亮 LEDR0
-5. LEDG 顯示 overflow / unsaved 狀態
+5. LEDG 顯示目前行右側未顯示 / unsaved 狀態
 ```
 
 ---

@@ -4,7 +4,7 @@
 
 本專題預計在 ALTERA DE2-115 FPGA 平台上實作一個簡易文字編輯器。系統使用 LCD 作為主要顯示介面，第一列顯示目前正在編輯的行，第二列顯示下一行；若目前行已是文件最後一行，第二列會閃爍顯示 END 標記。使用者可透過 SW[6:0] 輸入 7-bit ASCII 字元，並按下 KEY1 寫入內容。若輸入值為 ASCII BS = 0x08、LF = 0x0A 或 DEL = 0x7F，系統會分別執行刪除左側字元、換行或刪除游標所在字元。KEY0 用於將目前文件手動存入 EEPROM，SW16 用於切換 insert / overwrite 模式，SW17 用於切換移動模式，讓 KEY3、KEY2 可分別控制游標左右移動或行數上下移動。
 
-七段顯示器用於顯示目前編輯狀態，其中 HEX7~HEX6 顯示目前行號，HEX5~HEX4 顯示目前字元位置，HEX3~HEX2 顯示文件總行數，HEX1~HEX0 顯示目前 ASCII 值。LEDR[17:0] 作為文件行數進度條，EEPROM 讀寫期間會暫時顯示單燈跑馬燈活動效果；LEDG 則顯示 insert/overwrite、移動模式、EEPROM error、未儲存與行溢位等狀態。由於本系統需要處理文字陣列、游標控制與編輯邏輯，希望採用 Nios II + C 語言實作，並透過 PIO 控制各項硬體周邊。
+七段顯示器用於顯示目前編輯狀態，其中 HEX7~HEX6 顯示目前行號，HEX5~HEX4 顯示目前字元位置，HEX3~HEX2 顯示文件總行數，HEX1~HEX0 顯示目前 ASCII 值。LEDR[17:0] 作為文件行數進度條，EEPROM 讀寫期間會暫時顯示單燈跑馬燈活動效果；LEDG 則顯示 insert/overwrite、移動模式、EEPROM error、未儲存，以及目前 LCD 視窗右側仍有文字未顯示等狀態。由於本系統需要處理文字陣列、游標控制與編輯邏輯，希望採用 Nios II + C 語言實作，並透過 PIO 控制各項硬體周邊。
 
 目前文件先存放在 Nios II C 程式的 Document Buffer，最多 32 行、每行 99 個字元，並以固定 EEPROM v2 格式保存至板上 24LC32 類 EEPROM，使 reset 或重新上電後仍可讀回文件。若專題完成之際仍有時間，希望再擴充 UART 輸出、SD 卡儲存，以及 PS/2 鍵盤輸入功能，使系統更接近完整的硬體文字編輯器。
 

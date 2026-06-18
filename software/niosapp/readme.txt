@@ -10,8 +10,9 @@ INPUTS:
 - SW16: edit mode, 0 = overwrite and 1 = insert.
 - SW17: navigation mode, 0 = left/right and 1 = up/down.
 - KEY0: save the current document to EEPROM.
-- KEY1: write the current ASCII byte; 0x08 backspaces, 0x0A creates a
-  new line, and 0x7F deletes the character under the cursor.
+- KEY1: write the current ASCII byte; 0x08 backspaces, including joining with
+  the previous line at column 0, 0x0A creates a new line, and 0x7F deletes the
+  character under the cursor.
 - KEY3: move left or up.
 - KEY2: move right or down.
 
@@ -34,7 +35,7 @@ OUTPUTS:
 - LEDG0: insert mode.
 - LEDG1: navigation mode.
 - LEDG5: EEPROM error.
-- LEDG6: overflow.
+- LEDG6: current-line text remains hidden to the right of the LCD viewport.
 - LEDG7: unsaved changes.
 
 SOURCE FILES:

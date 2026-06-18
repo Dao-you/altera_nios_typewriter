@@ -9,7 +9,7 @@
 主要功能規劃：
 
 - `SW[6:0]` 輸入 7-bit ASCII。
-- `KEY1` 寫入目前 ASCII；若 ASCII 是 `0x08` 執行 BS 刪除左側字元，`0x0A` 執行 LF 換行，`0x7F` 執行 DEL 刪除游標所在字元。
+- `KEY1` 寫入目前 ASCII；若 ASCII 是 `0x08` 執行 BS 刪除左側字元，行頭時刪除上一行 LF 並合併行，`0x0A` 執行 LF 換行，`0x7F` 執行 DEL 刪除游標所在字元。
 - `KEY0` 手動將目前文件存入 EEPROM。
 - `SW16` 切換 Insert / Overwrite：`0` 為 Overwrite，`1` 為 Insert。
 - `SW17` 切換移動模式：左右 / 上下。
@@ -18,7 +18,7 @@
 - HEX 以十進位顯示目前行號、游標位置、總行數；`HEX1~HEX0` 以十六進位顯示目前 ASCII。
 - LEDR 平時顯示目前行在文件總行數中的位置，從 `LEDR17` 往 `LEDR0` 亮；只有目前行是最後一行時 `LEDR0` 才亮。
 - `KEY0` 實際寫入 EEPROM 期間，LEDR 暫時改為 `LEDR17..LEDR1` 單燈跑馬燈；這只是儲存中視覺效果，不代表儲存進度。
-- LEDG 顯示模式、overflow、unsaved 狀態。
+- LEDG 顯示模式、目前 LCD 視窗右側是否還有未顯示內容、unsaved 狀態。
 - 文件先存在 C 程式的 Document Buffer，後續寫入 DE2-115 板上 24LC32 類 EEPROM。
 
 ## 目前狀態
@@ -40,7 +40,7 @@
 目前 `software/niosapp/` 已實作：
 
 - `main.c`：主迴圈讀取 `SW` / `KEY`，處理 `KEY0` 存檔、`KEY1` 寫入、`KEY2/KEY3` 移動。
-- `editor.c/.h`：固定大小 `EditorDocument`、Insert / Overwrite、BS、LF、DEL、左右上下移動、dirty / overflow flag、序列化 / 反序列化。
+- `editor.c/.h`：固定大小 `EditorDocument`、Insert / Overwrite、BS、LF、DEL、左右上下移動、dirty flag、序列化 / 反序列化。
 - `display.c/.h`：LEDR、LEDG、HEX、LCD 更新；HEX7~HEX2 使用十進位，HEX1~HEX0 顯示 ASCII 十六進位；LCD 以 16 欄 viewport 顯示目前行 / 下一行；最後一行的 END 標記會閃爍；EEPROM 讀寫期間顯示 LEDR 跑馬燈。
 - `lcd.c/.h`：LCD1602 8-bit PIO bit-bang、兩行文字更新、LCD 內建 cursor 模式切換。
 - `key.c/.h`：active-low KEY 讀取、簡單 debounce、pressed-edge 偵測。
@@ -151,7 +151,6 @@ typedef struct {
     unsigned char total_lines;
     unsigned char insert_mode;
     unsigned char dirty;
-    unsigned char overflow;
 } EditorDocument;
 ```
 
@@ -306,12 +305,12 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - Eclipse app build 成功，`software/niosapp/niosapp.elf` 更新。
 - JTAG UART 可執行基本 `printf`。
 - `SW[6:0]` 可讀出並在 HEX1~HEX0 顯示 ASCII hex。
-- `SW[6:0] = 0x08` 時 KEY1 執行 BS，`0x0A` 時 KEY1 執行 LF，`0x7F` 時 KEY1 執行 DEL。
+- `SW[6:0] = 0x08` 時 KEY1 執行 BS，且游標在行頭時會刪除上一行 LF 並合併行；`0x0A` 時 KEY1 執行 LF，`0x7F` 時 KEY1 執行 DEL。
 - `SW[15]` 為 reset：`0` reset，`1` run。
 - `SW[16]` 可即時切換 Overwrite / Insert，且 LEDG0 反映目前模式。
 - KEY active-low 反相與 edge detection 正確，一次按下只觸發一次。
 - HEX active-low 顯示正確，未用位可 blank。
-- LEDG0/LEDG1/LEDG6/LEDG7 狀態符合計畫。
+- LEDG0/LEDG1/LEDG6/LEDG7 狀態符合計畫；LEDG6 只在目前 LCD 視窗右側仍有當前行文字未顯示時亮。
 - LCD 初始化後能顯示目前行與下一行；到最後一行時第二列 `------END-------` 會以接近游標的頻率閃爍。
 - LCD 游標在目前編輯位置；Insert 模式為底線游標，Overwrite 模式為整格閃爍游標。
 - `KEY0` 手動存檔時，`LEDR17..LEDR1` 會顯示單燈跑馬燈；這不是進度條，存檔結束後恢復目前行進度顯示。

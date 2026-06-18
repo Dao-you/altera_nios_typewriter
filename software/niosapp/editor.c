@@ -93,7 +93,6 @@ void editor_init(EditorDocument *editor)
     editor->total_lines = 1;
     editor->insert_mode = 0;
     editor->dirty = 0;
-    editor->overflow = 0;
 }
 
 /**
@@ -115,7 +114,6 @@ static int editor_newline(EditorDocument *editor)
     int tail_len;
 
     if (editor->total_lines >= MAX_LINES) {
-        editor->overflow = 1;
         return 0;
     }
 
@@ -145,7 +143,6 @@ static int editor_newline(EditorDocument *editor)
     editor->current_line = (unsigned char)new_line;
     editor->cursor_col = 0;
     editor->dirty = 1;
-    editor->overflow = 0;
     return 1;
 }
 
@@ -161,7 +158,6 @@ static int editor_insert_char(EditorDocument *editor, unsigned char ascii)
     line = editor->current_line;
     len = editor->line_len[line];
     if (len >= LINE_LEN) {
-        editor->overflow = 1;
         return 0;
     }
 
@@ -173,7 +169,6 @@ static int editor_insert_char(EditorDocument *editor, unsigned char ascii)
     editor->line_len[line]++;
     editor->cursor_col++;
     editor->dirty = 1;
-    editor->overflow = 0;
     return 1;
 }
 
@@ -186,7 +181,6 @@ static int editor_overwrite_char(EditorDocument *editor, unsigned char ascii)
 
     line = editor->current_line;
     if (editor->cursor_col >= LINE_LEN) {
-        editor->overflow = 1;
         return 0;
     }
 
@@ -196,7 +190,6 @@ static int editor_overwrite_char(EditorDocument *editor, unsigned char ascii)
     }
     editor->cursor_col++;
     editor->dirty = 1;
-    editor->overflow = 0;
     return 1;
 }
 
@@ -224,17 +217,60 @@ static int editor_delete_at(EditorDocument *editor, int col)
         editor->cursor_col = editor->line_len[line];
     }
     editor->dirty = 1;
-    editor->overflow = 0;
+    return 1;
+}
+
+/**
+ * Join the current line into the previous line, deleting the LF between them.
+ */
+static int editor_join_with_previous_line(EditorDocument *editor)
+{
+    int i;
+    int prev_line;
+    int current_line;
+    int prev_len;
+    int current_len;
+
+    if (editor->current_line == 0) {
+        return 0;
+    }
+
+    current_line = editor->current_line;
+    prev_line = current_line - 1;
+    prev_len = editor->line_len[prev_line];
+    current_len = editor->line_len[current_line];
+
+    if (prev_len + current_len > LINE_LEN) {
+        return 0;
+    }
+
+    for (i = 0; i < current_len; ++i) {
+        editor->document[prev_line][prev_len + i] =
+            editor->document[current_line][i];
+    }
+    editor->line_len[prev_line] = (unsigned char)(prev_len + current_len);
+
+    for (i = current_line; i < editor->total_lines - 1; ++i) {
+        editor_copy_line(editor, i, i + 1);
+    }
+    editor_clear_line(editor, editor->total_lines - 1);
+
+    editor->total_lines--;
+    editor->current_line = (unsigned char)prev_line;
+    editor->cursor_col = (unsigned char)prev_len;
+    editor->dirty = 1;
     return 1;
 }
 
 /**
  * Delete the character before the cursor and move the cursor left.
+ * At column 0, delete the LF before this line by joining with the previous
+ * line when the fixed line length allows it.
  */
 static int editor_backspace(EditorDocument *editor)
 {
     if (editor->cursor_col == 0) {
-        return 0;
+        return editor_join_with_previous_line(editor);
     }
     editor->cursor_col--;
     return editor_delete_at(editor, editor->cursor_col);
@@ -250,8 +286,9 @@ static int editor_delete(EditorDocument *editor)
 
 /**
  * Write an ASCII byte or supported control byte at the cursor.
- * BS deletes the previous character, LF creates a new line, and DEL deletes
- * the character under the cursor. Returns 1 when the document changes.
+ * BS deletes the previous character or previous LF, LF creates a new line,
+ * and DEL deletes the character under the cursor. Returns 1 when the document
+ * changes.
  */
 int editor_write_ascii(EditorDocument *editor, unsigned char ascii)
 {
@@ -286,7 +323,6 @@ int editor_move_left(EditorDocument *editor)
         return 0;
     }
     editor->cursor_col--;
-    editor->overflow = 0;
     return 1;
 }
 
@@ -300,7 +336,6 @@ int editor_move_right(EditorDocument *editor)
         return 0;
     }
     editor->cursor_col++;
-    editor->overflow = 0;
     return 1;
 }
 
@@ -317,7 +352,6 @@ int editor_move_up(EditorDocument *editor)
     if (editor->cursor_col > editor->line_len[editor->current_line]) {
         editor->cursor_col = editor->line_len[editor->current_line];
     }
-    editor->overflow = 0;
     return 1;
 }
 
@@ -334,7 +368,6 @@ int editor_move_down(EditorDocument *editor)
     if (editor->cursor_col > editor->line_len[editor->current_line]) {
         editor->cursor_col = editor->line_len[editor->current_line];
     }
-    editor->overflow = 0;
     return 1;
 }
 
@@ -443,7 +476,6 @@ int editor_deserialize(EditorDocument *editor, const unsigned char *buffer, unsi
     }
 
     editor->dirty = 0;
-    editor->overflow = 0;
     editor_normalize(editor);
     return 1;
 }
