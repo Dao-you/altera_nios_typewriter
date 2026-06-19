@@ -15,7 +15,7 @@
 - `SW16` 切換 Insert / Overwrite：`0` 為 Overwrite，`1` 為 Insert。
 - `SW17` 切換移動模式：左右 / 上下。
 - `KEY3` 往前 / 往上，`KEY2` 往後 / 往下。
-- LCD 第一列顯示目前編輯行，第二列顯示下一行；若目前已是最後一行，第二列以接近 LCD 內建游標的頻率閃爍顯示 `------END-------` 標記，避免與真實文字混淆。
+- 一般 editor viewport 可用 LCD 第一列顯示目前編輯行、第二列顯示下一行；若目前已是最後一行，第二列以接近 LCD 內建游標的頻率閃爍顯示 `------END-------` 標記，避免與真實文字混淆。目前 EEPROM editor 主畫面使用專用版面：第一列顯示置中的閃爍 `EEPROM` marker，第二列顯示目前編輯行與游標。
 - HEX 以十進位顯示目前行號、游標位置、總行數；`HEX1~HEX0` 以十六進位顯示目前 ASCII。
 - LEDR 平時顯示目前行在文件總行數中的位置，從 `LEDR17` 往 `LEDR0` 亮；只有目前行是最後一行時 `LEDR0` 才亮。
 - editor 選單確認 `Save to ROM` 且實際寫入 EEPROM 期間，LEDR 暫時改為 Verilog 控制的單燈跑馬燈；這只是儲存中視覺效果，不代表儲存進度。
@@ -48,7 +48,7 @@
 - `main.c`：開機選單與主迴圈狀態切換；開機時提供選項列表給 `menu.c`，確認後進入 EEPROM/editor 或 SD `QUESTION.TXT` 讀取測試畫面；editor 內 `KEY0` 進入 editor 選單，`KEY1` 寫入，`KEY2/KEY3` 移動。
 - `editor.c/.h`：固定大小 `EditorDocument`、Insert / Overwrite、BS、LF、DEL、左右上下移動、清除目前行、清除全文、移到文件開頭/結尾、dirty flag、序列化 / 反序列化。
 - `menu.c/.h`：共用 LCD 選單狀態機；呼叫端只提供 null-terminated 選項列表，`KEY3` / `KEY2` 左右移動，`KEY0` 確認並回傳 option index。
-- `display.c/.h`：LEDR、LEDG、HEX、LCD 更新；HEX7~HEX2 使用十進位，HEX1~HEX0 顯示 ASCII 十六進位；LCD 以 16 欄 viewport 顯示目前行 / 下一行；最後一行的 END 標記會閃爍；共用選單畫面第一列顯示選項名稱，第二列用 `<` / `>` 與十進位 `目前/總數` 顯示位置；EEPROM 讀寫與 SD 讀取期間顯示 LEDR 跑馬燈。
+- `display.c/.h`：LEDR、LEDG、HEX、LCD 更新；HEX7~HEX2 使用十進位，HEX1~HEX0 顯示 ASCII 十六進位；LCD 支援一般 editor viewport、EEPROM editor title viewport、上下列閃爍 marker、互動式一般/確認/錯誤訊息；共用選單畫面第一列顯示選項名稱，第二列用 `<` / `>` 與十進位 `目前/總數` 顯示位置；EEPROM 讀寫與 SD 讀取期間顯示 LEDR 跑馬燈。
 - `lcd.c/.h`：LCD1602 8-bit PIO bit-bang、兩行文字更新、LCD 內建 cursor 模式切換。
 - `key.c/.h`：active-low KEY 讀取、簡單 debounce、pressed-edge 偵測。
 - `keyboard.c/.h`：讀取 Verilog PS/2 keyboard FIFO PIO，將 decoded byte 交回現有 editor action。
@@ -226,8 +226,9 @@ LCD 常用重點：
 - 第二列 DDRAM address：`0x40` 到 `0x4F`，set DDRAM command 為 `0x80 | addr`。
 - 初始化可參考 `lcd_text_driver.v`：`0x38`、`0x38`、`0x38`、`0x0C`、`0x01`、`0x06`、`0x80`。
 - 目前 C 版用 LCD 內建 cursor 顯示編輯位置：Insert 模式使用 non-blinking underline cursor，Overwrite 模式使用 blinking block cursor。
-- 目前 LCD 第一列顯示目前行，第二列顯示下一行；長行會依游標位置水平捲動 16 欄 viewport。
+- 一般 editor viewport 第一列顯示目前行，第二列顯示下一行；長行會依游標位置水平捲動 16 欄 viewport。目前 EEPROM editor 主畫面改用第一列 `EEPROM` 閃爍 marker、第二列目前行，游標在第二列。
 - 若目前行是文件最後一行，第二列顯示 `------END-------`，並在顯示 / 空白之間以接近 LCD 內建游標的頻率閃爍，讓它不會被誤認為文件內容。此為 C 端依主迴圈 refresh tick 的頻率近似，並未讀回 LCD 內部 blink 相位。
+- 一般訊息畫面第一列顯示訊息、第二列置中 `KEY0 OK`，等待 `KEY0` 返回，LEDR 使用 2 Hz 全燈閃爍；確認訊息第二列顯示 `KEY1YES KEY0NO`，`KEY1` 確認、`KEY0` 取消，LEDR 使用 2 Hz 全燈閃爍；錯誤訊息第二列置中 `KEY0 OK`，LEDR 使用 5 Hz 全燈閃爍。
 - Clear display / return home 需約 1.5 ms 以上，其餘 command/data 通常至少約 40 us。
 - 若用 C bit-bang，務必封裝 `lcd_write_command()`、`lcd_write_data()`、`lcd_pulse_enable()`，不要在主邏輯散落控制 bit。
 
@@ -361,8 +362,9 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - KEY active-low 反相與 edge detection 正確，一次按下只觸發一次。
 - HEX active-low 顯示正確，未用位可 blank。
 - LEDG0/LEDG1/LEDG6/LEDG7 狀態符合計畫；LEDG6 只在目前 LCD 視窗右側仍有當前行文字未顯示時亮。
-- LCD 初始化後能顯示目前行與下一行；到最後一行時第二列 `------END-------` 會以接近游標的頻率閃爍。
-- LCD 游標在目前編輯位置；Insert 模式為底線游標，Overwrite 模式為整格閃爍游標。
+- EEPROM editor 主畫面 LCD 第一列顯示置中的閃爍 `EEPROM` marker，第二列顯示目前編輯行。
+- LCD 游標在目前編輯位置；EEPROM editor 中游標位於第二列，Insert 模式為底線游標，Overwrite 模式為整格閃爍游標。
+- 一般訊息 / 確認訊息 / 錯誤訊息的第二列提示文字與 `KEY0` / `KEY1` 返回邏輯正確，且 LEDR 分別以 2 Hz / 5 Hz 全燈閃爍。
 - PS/2 鍵盤可輸入英文字母、數字、空白與常用標點；Shift/Caps Lock 會影響大小寫，Shift 會產生符號。
 - PS/2 Enter / Backspace / Delete 分別觸發 LF、BS、DEL；方向鍵觸發游標左、右、上、下移動。
 - editor 選單確認 `Save to ROM` 並實際存檔時，`LEDR17..LEDR1` 會顯示單燈跑馬燈；這不是進度條，存檔結束後恢復目前行進度顯示。

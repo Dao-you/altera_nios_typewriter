@@ -9,12 +9,15 @@
 #define LCD_CURSOR_RIGHT_CONTEXT 2
 #define LCD_CURSOR_MAX_COL (LCD_WIDTH - 1 - LCD_CURSOR_RIGHT_CONTEXT)
 #define LCD_END_WORD "END"
+#define LCD_EEPROM_WORD "EEPROM"
 /* Approximate the LCD1602 built-in cursor blink cadence in main-loop ticks. */
 #define LCD_CURSOR_BLINK_MATCH_TICKS 34u
 #define LEDR_PROGRESS_LED_COUNT 18u
 #define LEDR_ACTIVITY_LED_COUNT 17u
 #define DISPLAY_MENU_LEFT_COL 1
 #define DISPLAY_MENU_RIGHT_COL (LCD_WIDTH - 2)
+#define DISPLAY_INFO_OK_TEXT "KEY0 OK"
+#define DISPLAY_CONFIRM_TEXT "KEY1YES KEY0NO"
 
 static int display_lcd_view_start = 0;
 static unsigned int display_marker_blink_tick = 0;
@@ -61,6 +64,11 @@ static void display_write_ledr(unsigned int value)
 {
     IOWR_ALTERA_AVALON_PIO_DATA(PIO_OUT_LEDR_BASE, value);
     display_select_nios_ledr();
+}
+
+static void display_select_ledr_effect(unsigned char flag)
+{
+    display_write_ledr_flag(flag);
 }
 
 /**
@@ -328,6 +336,23 @@ static void display_build_center_marker(const char *word, char *marker)
     }
 }
 
+static void display_build_center_text(const char *text, char *row)
+{
+    unsigned int text_length;
+    unsigned int text_start;
+    unsigned int i;
+
+    text_length = display_marker_word_length(text);
+    text_start = (LCD_WIDTH - text_length) / 2u;
+
+    for (i = 0; i < LCD_WIDTH; ++i) {
+        row[i] = ' ';
+    }
+    for (i = 0; i < text_length; ++i) {
+        row[text_start + i] = text[i];
+    }
+}
+
 /**
  * Show a blinking LCD marker centered in '-' fill characters.
  */
@@ -341,6 +366,22 @@ void display_show_blinking_marker(int row, const char *word)
     } else {
         lcd_write_line(row, "", 0);
     }
+}
+
+/**
+ * Show a blinking LCD marker on the first LCD row.
+ */
+void display_show_top_blinking_marker(const char *word)
+{
+    display_show_blinking_marker(0, word);
+}
+
+/**
+ * Show a blinking LCD marker on the second LCD row.
+ */
+void display_show_bottom_blinking_marker(const char *word)
+{
+    display_show_blinking_marker(1, word);
 }
 
 static int display_line_has_hidden_right(const EditorDocument *editor,
@@ -422,7 +463,7 @@ static void display_write_editor_lines(const EditorDocument *editor,
         lcd_write_line(1, view, LCD_WIDTH);
         display_reset_blinking_marker();
     } else {
-        display_show_blinking_marker(1, LCD_END_WORD);
+        display_show_bottom_blinking_marker(LCD_END_WORD);
     }
 
     cursor_col = (int)editor->cursor_col - view_start;
@@ -430,12 +471,29 @@ static void display_write_editor_lines(const EditorDocument *editor,
 }
 
 /**
- * Update LEDR, LEDG, HEX0-HEX7, and LCD from the current editor state.
+ * Refresh the EEPROM editor title row and the current editor line.
  */
-void display_update(const EditorDocument *editor,
-                    unsigned char ascii,
-                    int nav_mode,
-                    int eeprom_error)
+static void display_write_eeprom_editor_lines(const EditorDocument *editor,
+                                              int view_start)
+{
+    char view[LCD_WIDTH];
+    int cursor_col;
+
+    display_show_top_blinking_marker(LCD_EEPROM_WORD);
+    display_build_line_view(editor, editor->current_line, view_start, view);
+    lcd_write_line(1, view, LCD_WIDTH);
+
+    cursor_col = (int)editor->cursor_col - view_start;
+    lcd_set_cursor(1, cursor_col);
+}
+
+/**
+ * Update shared editor LEDR, LEDG, and HEX fields.
+ */
+static int display_update_editor_status(const EditorDocument *editor,
+                                        unsigned char ascii,
+                                        int nav_mode,
+                                        int eeprom_error)
 {
     int view_start;
 
@@ -462,7 +520,42 @@ void display_update(const EditorDocument *editor,
     display_write_hex_byte(PIO_OUT_HEX1_BASE, PIO_OUT_HEX0_BASE,
                            (unsigned char)(ascii & 0x7Fu));
 
+    return view_start;
+}
+
+/**
+ * Update LEDR, LEDG, HEX0-HEX7, and LCD from the current editor state.
+ */
+void display_update(const EditorDocument *editor,
+                    unsigned char ascii,
+                    int nav_mode,
+                    int eeprom_error)
+{
+    int view_start;
+
+    view_start = display_update_editor_status(editor,
+                                              ascii,
+                                              nav_mode,
+                                              eeprom_error);
     display_write_editor_lines(editor, view_start);
+    lcd_set_cursor_mode(editor->insert_mode);
+}
+
+/**
+ * Update LEDR, LEDG, HEX0-HEX7, and LCD from the EEPROM editor state.
+ */
+void display_update_eeprom_editor(const EditorDocument *editor,
+                                  unsigned char ascii,
+                                  int nav_mode,
+                                  int eeprom_error)
+{
+    int view_start;
+
+    view_start = display_update_editor_status(editor,
+                                              ascii,
+                                              nav_mode,
+                                              eeprom_error);
+    display_write_eeprom_editor_lines(editor, view_start);
     lcd_set_cursor_mode(editor->insert_mode);
 }
 
@@ -552,6 +645,50 @@ void display_show_message(const char *line0, const char *line1)
     lcd_write_line(0, line0, display_text_length(line0, LCD_WIDTH));
     lcd_write_line(1, line1, display_text_length(line1, LCD_WIDTH));
     lcd_hide_cursor();
+}
+
+static void display_show_key_message(const char *message,
+                                     const char *action_text,
+                                     unsigned char ledr_flag)
+{
+    char row[LCD_WIDTH];
+
+    display_select_ledr_effect(ledr_flag);
+    display_clear_ledg();
+    display_build_center_text(action_text, row);
+    lcd_write_line(0, message, display_text_length(message, LCD_WIDTH));
+    lcd_write_line(1, row, LCD_WIDTH);
+    lcd_hide_cursor();
+}
+
+/**
+ * Show an informational message that returns on KEY0.
+ */
+void display_show_info_message(const char *message)
+{
+    display_show_key_message(message,
+                             DISPLAY_INFO_OK_TEXT,
+                             DISPLAY_LEDR_FLAG_CONFIRM_BLINK);
+}
+
+/**
+ * Show a yes/no confirmation message. KEY1 accepts and KEY0 cancels.
+ */
+void display_show_confirm_message(const char *message)
+{
+    display_show_key_message(message,
+                             DISPLAY_CONFIRM_TEXT,
+                             DISPLAY_LEDR_FLAG_CONFIRM_BLINK);
+}
+
+/**
+ * Show an error message that returns on KEY0.
+ */
+void display_show_error_message(const char *message)
+{
+    display_show_key_message(message,
+                             DISPLAY_INFO_OK_TEXT,
+                             DISPLAY_LEDR_FLAG_ERROR_BLINK);
 }
 
 /**

@@ -36,13 +36,16 @@ OUTPUTS:
   column 1 for "<" when an option exists to the left, column 14 for ">" when
   an option exists to the right, and a centered decimal counter such as "1/2".
   Startup and editor menus share this layout.
-- LCD: current editor line and next line through a 16-column viewport. The
-  viewport scrolls on long lines after the cursor crosses the third column or
-  the third column from the right. The second LCD row blinks "------END-------"
-  near the built-in cursor blink rate on the final document line so the marker
-  is not mistaken for document text.
+- LCD: the EEPROM editor main view uses the first row for a centered blinking
+  "EEPROM" marker and the second row for the current editor line through a
+  16-column viewport. The viewport scrolls on long lines after the cursor
+  crosses the third column or the third column from the right.
   Insert mode uses the underline cursor; overwrite mode uses the blinking
   block cursor.
+- Modal messages: informational messages show "KEY0 OK" centered on row 2 and
+  return on KEY0 with 2 Hz LEDR blinking. Confirmation messages show
+  "KEY1YES KEY0NO" and use KEY1 for yes / KEY0 for no with 2 Hz LEDR blinking.
+  Error messages show "KEY0 OK" centered and use 5 Hz LEDR blinking.
 - HEX7..HEX6: current line number, decimal.
 - HEX5..HEX4: cursor column, decimal.
 - HEX3..HEX2: total line count, decimal.
@@ -61,14 +64,16 @@ OUTPUTS:
 
 SOURCE FILES:
 - main.c: application loop and event dispatch.
+  It owns modal message states for informational, confirmation, and error
+  prompts.
 - menu.c/.h: shared LCD menu state machine. Callers provide an option list;
   KEY3/KEY2 move left/right and KEY0 returns the selected option index.
 - editor.c/.h: document buffer and editing operations.
 - key.c/.h: active-low key debounce and edge detection.
 - display.c/.h, lcd.c/.h, seven_seg.c/.h: board display output.
-  display.c centralizes LEDR progress, activity marquee, blinking marker, and
-  LEDG indicator ownership. display.h also defines the pio_out_ledr_flag bit
-  masks used by the Verilog LEDR effect controller.
+  display.c centralizes LEDR progress, activity marquee, modal messages,
+  blinking markers, and LEDG indicator ownership. display.h also defines the
+  pio_out_ledr_flag bit masks used by the Verilog LEDR effect controller.
 - eeprom.c/.h: 24LC32-compatible I2C EEPROM load/save.
 - sdcard.c/.h: SD card SPI-mode initialization and read-only FAT16/FAT32 root
   directory lookup for QUESTION.TXT, with activity callback support while the

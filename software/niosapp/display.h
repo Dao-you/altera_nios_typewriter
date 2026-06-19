@@ -41,6 +41,17 @@ void display_update(const EditorDocument *editor,
                     int eeprom_error);
 
 /**
+ * Update the EEPROM editor main view.
+ *
+ * The first LCD row shows a blinking EEPROM title marker. The second row shows
+ * the current editor line and owns the LCD cursor.
+ */
+void display_update_eeprom_editor(const EditorDocument *editor,
+                                  unsigned char ascii,
+                                  int nav_mode,
+                                  int eeprom_error);
+
+/**
  * Show one option from a horizontal menu.
  */
 void display_show_menu_item(const char *option_name,
@@ -51,6 +62,21 @@ void display_show_menu_item(const char *option_name,
  * Show a fixed two-line status message.
  */
 void display_show_message(const char *line0, const char *line1);
+
+/**
+ * Show an informational message that returns on KEY0.
+ */
+void display_show_info_message(const char *message);
+
+/**
+ * Show a yes/no confirmation message. KEY1 accepts and KEY0 cancels.
+ */
+void display_show_confirm_message(const char *message);
+
+/**
+ * Show an error message that returns on KEY0.
+ */
+void display_show_error_message(const char *message);
 
 /**
  * Show two newline-delimited text rows starting at first_line.
@@ -81,6 +107,16 @@ void display_show_progress_percent(unsigned int percent);
  * Show a blinking LCD marker centered in '-' fill characters.
  */
 void display_show_blinking_marker(int row, const char *word);
+
+/**
+ * Show a blinking LCD marker on the first LCD row.
+ */
+void display_show_top_blinking_marker(const char *word);
+
+/**
+ * Show a blinking LCD marker on the second LCD row.
+ */
+void display_show_bottom_blinking_marker(const char *word);
 
 /**
  * Show an activity marquee on LEDR17..LEDR1.
