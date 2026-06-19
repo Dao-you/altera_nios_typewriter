@@ -2,10 +2,10 @@
 <sch:Settings xmlns:sch="http://www.altera.com/embeddedsw/bsp/schema">
         <BspType>hal</BspType>
         <BspVersion>default</BspVersion>
-        <BspGeneratedTimeStamp>2026/6/19 下午 10:22:25</BspGeneratedTimeStamp>
-        <BspGeneratedUnixTimeStamp>1781878945203</BspGeneratedUnixTimeStamp>
-        <BspGeneratedLocation>.\</BspGeneratedLocation>
-        <BspSettingsFile>software\niosapp_bsp\settings.bsp</BspSettingsFile>
+        <BspGeneratedTimeStamp>2026/6/19 下午 11:19:29</BspGeneratedTimeStamp>
+        <BspGeneratedUnixTimeStamp>1781882369172</BspGeneratedUnixTimeStamp>
+        <BspGeneratedLocation>D:\quartus\quartusFinalProject\software\niosapp_bsp</BspGeneratedLocation>
+        <BspSettingsFile>settings.bsp</BspSettingsFile>
         <SopcDesignFile>D:\quartus\quartusFinalProject\nios.sopcinfo</SopcDesignFile>
         <JdiFile>default</JdiFile>
         <Cpu>cpu</Cpu>

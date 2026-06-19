@@ -4,7 +4,7 @@
  * Machine generated for CPU 'cpu' in SOPC Builder design 'nios'
  * SOPC Builder design path: D:/quartus/quartusFinalProject/nios.sopcinfo
  *
- * Generated: Fri Jun 19 22:22:31 CST 2026
+ * Generated: Fri Jun 19 23:14:59 CST 2026
  */
 
 /*
@@ -861,7 +861,7 @@
 #define SYSID_QSYS_IRQ_INTERRUPT_CONTROLLER_ID -1
 #define SYSID_QSYS_NAME "/dev/sysid_qsys"
 #define SYSID_QSYS_SPAN 8
-#define SYSID_QSYS_TIMESTAMP 1781878859
+#define SYSID_QSYS_TIMESTAMP 1781881922
 #define SYSID_QSYS_TYPE "altera_avalon_sysid_qsys"
 
 #endif /* __SYSTEM_H_ */

@@ -160,9 +160,9 @@ module nios_mm_interconnect_0_addr_router_001
     localparam PAD21 = log2ceil(64'h41150 - 64'h41140); 
     localparam PAD22 = log2ceil(64'h41160 - 64'h41150); 
     localparam PAD23 = log2ceil(64'h41170 - 64'h41160); 
-    localparam PAD24 = log2ceil(64'h41180 - 64'h41170);
-    localparam PAD25 = log2ceil(64'h41188 - 64'h41180);
-    localparam PAD26 = log2ceil(64'h41190 - 64'h41188);
+    localparam PAD24 = log2ceil(64'h41180 - 64'h41170); 
+    localparam PAD25 = log2ceil(64'h41188 - 64'h41180); 
+    localparam PAD26 = log2ceil(64'h41190 - 64'h41188); 
     // -------------------------------------------------------
     // Work out which address bits are significant based on the
     // address range of the slaves. If the required width is too
