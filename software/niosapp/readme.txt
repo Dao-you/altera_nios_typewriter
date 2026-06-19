@@ -5,18 +5,29 @@ This application implements a small text editor on the DE2-115 board through
 Nios II C code and existing Avalon PIO peripherals.
 
 INPUTS:
+- Startup menu:
+  - KEY0: enter the EEPROM-backed text editor.
+  - KEY1: read QUESTION.TXT from the SD card root directory for a read-only
+    bring-up test.
 - SW[6:0]: 7-bit ASCII input.
 - SW15: active-low Nios II reset, 0 = reset and 1 = run.
 - SW16: edit mode, 0 = overwrite and 1 = insert.
 - SW17: navigation mode, 0 = left/right and 1 = up/down.
-- KEY0: save the current document to EEPROM.
-- KEY1: write the current ASCII byte; 0x08 backspaces, including joining with
-  the previous line at column 0, 0x0A creates a new line, and 0x7F deletes the
-  character under the cursor.
-- KEY3: move left or up.
-- KEY2: move right or down.
+- Editor mode:
+  - KEY0: save the current document to EEPROM.
+  - KEY1: write the current ASCII byte; 0x08 backspaces, including joining
+    with the previous line at column 0, 0x0A creates a new line, and 0x7F
+    deletes the character under the cursor.
+  - KEY3: move left or up.
+  - KEY2: move right or down.
+- SD view mode:
+  - KEY1: retry reading QUESTION.TXT.
+  - KEY2/KEY3: scroll down/up by one text line.
+  - KEY0: enter the EEPROM-backed text editor.
 
 OUTPUTS:
+- Startup LCD: first row shows "KEY0 EEPROM"; second row shows
+  "KEY1 SD QUESTION".
 - LCD: current editor line and next line through a 16-column viewport. The
   viewport scrolls on long lines after the cursor crosses the third column or
   the third column from the right. The second LCD row blinks "------END-------"
@@ -43,7 +54,11 @@ SOURCE FILES:
 - editor.c/.h: document buffer and editing operations.
 - key.c/.h: active-low key debounce and edge detection.
 - display.c/.h, lcd.c/.h, seven_seg.c/.h: board display output.
+  display.c centralizes LEDR progress, activity marquee, blinking marker, and
+  LEDG indicator ownership.
 - eeprom.c/.h: 24LC32-compatible I2C EEPROM load/save.
+- sdcard.c/.h: SD card SPI-mode initialization and read-only FAT16/FAT32 root
+  directory lookup for QUESTION.TXT.
 
 DOCUMENT LIMITS:
 - 32 lines, up to 99 characters per line.
@@ -57,3 +72,6 @@ parse under the installed make, so the verified app-only build command is:
 
 cd /cygdrive/d/quartus/quartusFinalProject/software/niosapp
 make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
+
+When Qsys changes, regenerate software/niosapp_bsp before building the app.
+The SD test requires SPI_SDCARD_BASE in software/niosapp_bsp/system.h.

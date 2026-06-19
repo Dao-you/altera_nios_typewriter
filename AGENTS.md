@@ -8,9 +8,10 @@
 
 主要功能規劃：
 
+- 開機後 LCD 先顯示選單：`KEY0` 進入原本 EEPROM / 文字編輯器流程，`KEY1` 測試讀取 SD 卡根目錄的 `QUESTION.TXT`。
 - `SW[6:0]` 輸入 7-bit ASCII。
-- `KEY1` 寫入目前 ASCII；若 ASCII 是 `0x08` 執行 BS 刪除左側字元，行頭時刪除上一行 LF 並合併行，`0x0A` 執行 LF 換行，`0x7F` 執行 DEL 刪除游標所在字元。
-- `KEY0` 手動將目前文件存入 EEPROM。
+- 進入文字編輯器後，`KEY1` 寫入目前 ASCII；若 ASCII 是 `0x08` 執行 BS 刪除左側字元，行頭時刪除上一行 LF 並合併行，`0x0A` 執行 LF 換行，`0x7F` 執行 DEL 刪除游標所在字元。
+- 進入文字編輯器後，`KEY0` 手動將目前文件存入 EEPROM。
 - `SW16` 切換 Insert / Overwrite：`0` 為 Overwrite，`1` 為 Insert。
 - `SW17` 切換移動模式：左右 / 上下。
 - `KEY3` 往前 / 往上，`KEY2` 往後 / 往下。
@@ -21,6 +22,7 @@
 - LEDG 顯示模式、目前 LCD 視窗右側是否還有未顯示內容、unsaved 狀態。
 - 文件先存在 C 程式的 Document Buffer，後續寫入 DE2-115 板上 24LC32 類 EEPROM。
 - PS/2 鍵盤由 Verilog 接收 scan code 並轉成 ASCII / editor control byte，透過 Qsys PIO FIFO 介面交給 Nios II C 程式，原本 SW/KEY 測試輸入仍保留。
+- SD 卡先以 Qsys `altera_avalon_spi` SPI mode 做只讀測試；`KEY1` 會嘗試讀 FAT16/FAT32 根目錄短檔名 `QUESTION.TXT` 並在 LCD 顯示內容，不實作 SD 寫入。
 
 ## 目前狀態
 
@@ -36,18 +38,20 @@
 - BSP：`software/niosapp_bsp`
 - 目前 C 程式：`software/niosapp/` 內的模組化 Nios II C editor app。
 - 目前 PS/2 Verilog 模組在專案根目錄：`ps2_keyboard_controller.v`、`ps2_receiver.v`、`ps2_scancode_parser.v`、`ps2_ascii_mapper.v`、`keyboard_fifo.v`、`keyboard_pio_interface.v`。
+- 目前 Qsys 已有 `spi_sdcard` Avalon SPI master，並已匯出到 `qsys_verilog_example.v` / `nios/synthesis/nios.v` 的 `spi_sdcard_external_*` ports。
 - 最近 Quartus flow 報告顯示成功，輸出 bitstream 在 `output_files/EP4.sof`
 - 最近 Nios app-only build 成功，輸出程式為 `software/niosapp/niosapp.elf`。
 
 目前 `software/niosapp/` 已實作：
 
-- `main.c`：主迴圈讀取 `SW` / `KEY`，處理 `KEY0` 存檔、`KEY1` 寫入、`KEY2/KEY3` 移動。
+- `main.c`：開機選單與主迴圈狀態切換；`KEY0` 進入 EEPROM/editor，editor 內處理 `KEY0` 存檔、`KEY1` 寫入、`KEY2/KEY3` 移動；`KEY1` 可進入 SD `QUESTION.TXT` 讀取測試畫面。
 - `editor.c/.h`：固定大小 `EditorDocument`、Insert / Overwrite、BS、LF、DEL、左右上下移動、dirty flag、序列化 / 反序列化。
 - `display.c/.h`：LEDR、LEDG、HEX、LCD 更新；HEX7~HEX2 使用十進位，HEX1~HEX0 顯示 ASCII 十六進位；LCD 以 16 欄 viewport 顯示目前行 / 下一行；最後一行的 END 標記會閃爍；EEPROM 讀寫期間顯示 LEDR 跑馬燈。
 - `lcd.c/.h`：LCD1602 8-bit PIO bit-bang、兩行文字更新、LCD 內建 cursor 模式切換。
 - `key.c/.h`：active-low KEY 讀取、簡單 debounce、pressed-edge 偵測。
 - `keyboard.c/.h`：讀取 Verilog PS/2 keyboard FIFO PIO，將 decoded byte 交回現有 editor action。
 - `eeprom.c/.h`：24LC32 類 I2C bit-bang、全文件 load/save、32-byte page write、ACK polling、讀寫中 activity callback。
+- `sdcard.c/.h`：透過 Qsys SPI core 做 SD card SPI mode 初始化、FAT16/FAT32 root directory 只讀尋找 `QUESTION.TXT`、讀出前 1023 bytes 給 LCD 測試畫面。
 - `seven_seg.c/.h`：active-low HEX 編碼與 blank。
 
 重要差異：
@@ -58,6 +62,7 @@
 - 目前 `system.h` 顯示 BSP 沒有 system timer：`ALT_SYS_CLK none`。若要精準定時或中斷式 debouncing，需在 Qsys 加 Timer 並重新 Generate HDL / 更新 BSP。簡單輪詢可先用 `alt_busy_sleep()`。
 - EEPROM PIO 已存在，不是未新增狀態。
 - PS/2 keyboard PIO 已由 Qsys 新增，但 Qsys 重新 Generate HDL 後仍必須更新 Nios BSP，否則 `system.h` 內 PIO base address 會停在舊版而導致 C 程式寫錯外設。
+- SD card SPI core 已由 Qsys 新增；Qsys 重新 Generate HDL 後同樣必須更新 Nios BSP，確認 `system.h` 內有 `SPI_SDCARD_BASE`。
 
 ## 重要目錄
 
@@ -68,6 +73,7 @@
 - `context/00BDF_HDL/`：課堂提供的 BDF/Verilog 基礎元件。
 - `context/03EEPROM/24LC32.pdf`：EEPROM datasheet。
 - `context/04LCD_DEMO/`：LCD datasheet 與 Verilog demo。
+- `UI.md`：目前 Nios C UI 層的維護性說明，包含 `display.c/.h` 的共用 API、LEDR/LEDG/LCD/HEX 顯示約定與新增 UI 功能時的做法。
 - `hw20_CpuExample/`：CPU + PIO + Eclipse app 範例，可參考 Nios 建置流程。
 - `hw21_LcdMenu/hw21/`：LCD、EEPROM、key pulse、seven-seg 等更接近本專題的 Verilog 範例。
 - `software/niosapp/`：目前應優先修改的 Nios II C application。
@@ -92,6 +98,7 @@
 - LCD ctrl output PIO：5 bit
 - EEPROM PIO：SCL out、SDA out、SDA output-enable、SDA in
 - PS/2 keyboard PIO：keyboard data in 8 bit、keyboard status in 8 bit、keyboard ack out 1 bit
+- SD card SPI master：`spi_sdcard`，匯出 MISO / MOSI / SCLK / SS_n
 
 在 C 裡請使用 `software/niosapp_bsp/system.h` 實際產生的 macro 名稱，不要憑計畫文件猜 base name。此專案目前常用名稱是：
 
@@ -109,6 +116,7 @@
 - `PIO_OUT_EEP_SDA_OUT_BASE`
 - `PIO_OUT_EEP_SDA_OE_BASE`
 - `PIO_IN_EEP_SDA_IN_BASE`
+- `SPI_SDCARD_BASE`
 
 若重新命名 Qsys 元件，BSP macro 會改變；C 程式必須一起更新。
 
@@ -121,6 +129,7 @@
 - `CLOCK_50` 接 Qsys clock。
 - `SW[15]` 產生 `reset_n`。
 - `PS2_CLK` / `PS2_DAT` 接 `ps2_keyboard_controller`，再以 keyboard data/status/ack PIO 對接 Nios。
+- `SD_CLK` / `SD_CMD` / `SD_DAT[3:0]` 接 Qsys `spi_sdcard_external_*`，目前用 SD SPI mode：`SCLK -> SD_CLK`、`MOSI -> SD_CMD`、`MISO <- SD_DAT[0]`、`SS_n -> SD_DAT[3]`，`SD_DAT[1]` / `SD_DAT[2]` 先 release high-Z，`SD_WP_N` 只保留為 top-level input。
 - `SW[17:0]` 全部輸入 Nios PIO；C 端使用 `SW17` 作為移動模式、`SW16` 作為 Insert / Overwrite、`SW[6:0]` 作為 ASCII。
 - `KEY[3:0]` 全部輸入 Nios PIO。
 - `LEDR[17:0]`、`LEDG[7:0]` 由 PIO 輸出。
@@ -134,6 +143,7 @@
 - EEPROM SDA 是 open-drain 類接法：只能 drive low 或 release high-Z，不能主動 drive high。
 - `UART_TXD` 目前固定為 `1'b1`，不要假設板上 UART 已接到 Nios。
 - `keyboard_status` bit 0 表示 FIFO 有資料，bit 1 表示 FIFO full，bit 2 表示 FIFO overflow/error；C 端讀完 `keyboard_data` 後 pulse `keyboard_ack` 取下一筆。
+- SD card `spi_sdcard` 目前只用 C 端輪詢讀取，不使用 interrupt；`sdcard.c` 只實作 read-only bring-up，不寫入 FAT 或 SD block。
 
 ## C 程式開發約定
 
@@ -145,7 +155,10 @@
 - `key.c` / `key.h`：active-low KEY 反相、去彈跳、edge detection
 - `keyboard.c` / `keyboard.h`：PS/2 decoded byte PIO 讀取與 ack pulse
 - `eeprom.c` / `eeprom.h`：24LC32 bit-bang I2C 儲存/讀取
+- `sdcard.c` / `sdcard.h`：SD card SPI mode + FAT16/FAT32 `QUESTION.TXT` 只讀測試
 - `seven_seg.c` / `seven_seg.h`：active-low 七段顯示編碼
+
+為了程式碼可維護性，UI 相關邏輯盡量寫成共用模組，不要在 `main.c` 或各功能模組裡散落直接控制 LEDR、LEDG、HEX、LCD 的程式。新增畫面、狀態燈、跑馬燈、進度條、閃爍訊息或 LCD 狀態文字時，優先擴充 `display.c/.h` 的共用函數，並同步更新根目錄 `UI.md`。`lcd.c/.h` 和 `seven_seg.c/.h` 是 display 層使用的底層 helper；除非正在修改驅動本身，一般功能流程不應直接操作它們或直接寫 display PIO。
 
 目前核心資料結構使用 `editor.h` 的固定大小 `EditorDocument`：
 
@@ -326,6 +339,9 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - Quartus compile 成功，`output_files/EP4.sof` 更新。
 - Eclipse app build 成功，`software/niosapp/niosapp.elf` 更新。
 - JTAG UART 可執行基本 `printf`。
+- 開機 LCD 顯示選單：`KEY0 EEPROM` / `KEY1 SD QUESTION`。
+- 開機選單按 `KEY0` 進入原本 EEPROM/editor 流程，若 EEPROM 有有效文件會載入，否則空白文件開始。
+- 開機選單按 `KEY1` 會讀 SD 卡 FAT16/FAT32 根目錄短檔名 `QUESTION.TXT`；成功後 LCD 以兩列顯示內容，`KEY2/KEY3` 捲動，`KEY1` 可重新讀檔，`KEY0` 可切回 EEPROM/editor。
 - `SW[6:0]` 可讀出並在 HEX1~HEX0 顯示 ASCII hex。
 - `SW[6:0] = 0x08` 時 KEY1 執行 BS，且游標在行頭時會刪除上一行 LF 並合併行；`0x0A` 時 KEY1 執行 LF，`0x7F` 時 KEY1 執行 DEL。
 - `SW[15]` 為 reset：`0` reset，`1` run。
@@ -353,3 +369,4 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - `UART_RXD` / `UART_TXD` 目前不是 Nios UART；除錯先用 JTAG UART。
 - `SW[15]` 是 reset；`SW[16]` 是 Insert / Overwrite；文字編輯器也使用 `SW[17]` 和 `SW[6:0]`。
 - Qsys 新增或重新排序 PIO 後一定要更新 BSP；只重新 Generate HDL 不會更新 `software/niosapp_bsp/system.h`。
+- 若 `KEY1` SD 測試只顯示 `Update BSP first`，代表 C app 是用尚未包含 `SPI_SDCARD_BASE` 的舊 BSP 編出來；先更新 `software/niosapp_bsp` 再 build app。
