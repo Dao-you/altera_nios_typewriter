@@ -24,6 +24,9 @@ typedef struct {
     unsigned char current_round;
     unsigned char total_rounds;
     unsigned int elapsed_ms;
+    unsigned int last_tick;
+    unsigned char timer_started;
+    unsigned char timer_running;
 } TypingGame;
 
 /**
@@ -48,9 +51,24 @@ TypingGameLoadResult typing_game_load_questions(TypingGame *game,
 void typing_game_restart(TypingGame *game);
 
 /**
- * Add elapsed time to the software stopwatch.
+ * Start the stopwatch if it has not started yet.
  */
-void typing_game_add_elapsed_ms(TypingGame *game, unsigned int delta_ms);
+void typing_game_start_stopwatch(TypingGame *game, unsigned int now_ticks);
+
+/**
+ * Resume the stopwatch after a pause, but only if it had already started.
+ */
+void typing_game_resume_stopwatch(TypingGame *game, unsigned int now_ticks);
+
+/**
+ * Pause the stopwatch and preserve elapsed time.
+ */
+void typing_game_pause_stopwatch(TypingGame *game, unsigned int now_ticks);
+
+/**
+ * Refresh elapsed time from the Qsys system timer tick.
+ */
+void typing_game_update_stopwatch(TypingGame *game, unsigned int now_ticks);
 
 /**
  * Advance when the current input exactly matches the current question.
@@ -67,5 +85,6 @@ unsigned char typing_game_current_question_len(const TypingGame *game);
 unsigned char typing_game_current_round_number(const TypingGame *game);
 unsigned char typing_game_total_rounds(const TypingGame *game);
 unsigned int typing_game_elapsed_ms(const TypingGame *game);
+int typing_game_stopwatch_started(const TypingGame *game);
 
 #endif

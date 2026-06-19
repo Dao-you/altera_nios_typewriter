@@ -2,9 +2,9 @@
  * linker.x - Linker script
  *
  * Machine generated for CPU 'cpu' in SOPC Builder design 'nios'
- * SOPC Builder design path: D:/quartus/quartusFinalProject/nios.sopcinfo
+ * SOPC Builder design path: ../../nios.sopcinfo
  *
- * Generated: Thu Jun 18 00:44:16 CST 2026
+ * Generated: Sat Jun 20 04:56:43 CST 2026
  */
 
 /*

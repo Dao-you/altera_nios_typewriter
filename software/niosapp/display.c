@@ -100,21 +100,16 @@ static void display_write_decimal_pair(unsigned int high_base,
     display_write_hex(low_base, seven_seg_encode_hex((unsigned char)(value % 10u)));
 }
 
-static void display_write_elapsed_time(unsigned int elapsed_ms)
+static void display_write_elapsed_min_sec(unsigned int elapsed_ms)
 {
     unsigned int total_seconds;
-    unsigned char minutes;
     unsigned char seconds;
 
     total_seconds = elapsed_ms / 1000u;
-    minutes = (unsigned char)((total_seconds / 60u) % 100u);
     seconds = (unsigned char)(total_seconds % 60u);
 
     display_write_decimal_pair(PIO_OUT_HEX3_BASE,
                                PIO_OUT_HEX2_BASE,
-                               minutes);
-    display_write_decimal_pair(PIO_OUT_HEX1_BASE,
-                               PIO_OUT_HEX0_BASE,
                                seconds);
 }
 
@@ -206,6 +201,15 @@ static void display_write_ledg_state(void)
     IOWR_ALTERA_AVALON_PIO_DATA(PIO_OUT_LEDG_BASE, display_ledg_state);
 }
 
+static void display_write_ledg8_state(int enabled)
+{
+#ifdef PIO_OUT_LEDG8_BASE
+    IOWR_ALTERA_AVALON_PIO_DATA(PIO_OUT_LEDG8_BASE, enabled ? 1u : 0u);
+#else
+    (void)enabled;
+#endif
+}
+
 static unsigned int display_ledg_progress_mask(unsigned char current,
                                                unsigned char total)
 {
@@ -235,10 +239,12 @@ static unsigned int display_ledg_progress_mask(unsigned char current,
 }
 
 static void display_show_ledg_progress(unsigned char current,
-                                       unsigned char total)
+                                       unsigned char total,
+                                       unsigned int elapsed_ms)
 {
     display_ledg_state = display_ledg_progress_mask(current, total);
     display_write_ledg_state();
+    display_write_ledg8_state(((elapsed_ms / 1000u) & 0x01u) != 0u);
 }
 
 /**
@@ -268,6 +274,7 @@ void display_clear_ledg(void)
 {
     display_ledg_state = 0;
     display_write_ledg_state();
+    display_write_ledg8_state(0);
 }
 
 /**
@@ -751,6 +758,7 @@ void display_show_menu_item_with_left_edge(const char *option_name,
 void display_show_message(const char *line0, const char *line1)
 {
     display_write_ledr(0);
+    display_clear_ledg();
     lcd_write_line(0, line0, display_text_length(line0, LCD_WIDTH));
     lcd_write_line(1, line1, display_text_length(line1, LCD_WIDTH));
     lcd_hide_cursor();
@@ -951,15 +959,27 @@ static void display_build_raw_view(const char *text,
 
 static void display_write_typing_status(unsigned char current_round,
                                         unsigned char total_rounds,
-                                        unsigned int elapsed_ms)
+                                        unsigned int elapsed_ms,
+                                        unsigned char ascii)
 {
+    unsigned char round_field;
+
+    if (((elapsed_ms / 1000u) % 4u) == 3u) {
+        round_field = total_rounds;
+    } else {
+        round_field = current_round;
+    }
+
     display_write_decimal_pair(PIO_OUT_HEX7_BASE,
                                PIO_OUT_HEX6_BASE,
-                               current_round);
+                               round_field);
     display_write_decimal_pair(PIO_OUT_HEX5_BASE,
                                PIO_OUT_HEX4_BASE,
-                               total_rounds);
-    display_write_elapsed_time(elapsed_ms);
+                               (unsigned char)((elapsed_ms / 60000u) % 100u));
+    display_write_elapsed_min_sec(elapsed_ms);
+    display_write_hex_byte(PIO_OUT_HEX1_BASE,
+                           PIO_OUT_HEX0_BASE,
+                           (unsigned char)(ascii & 0x7Fu));
 }
 
 /**
@@ -970,24 +990,28 @@ void display_show_typing_game(const char *question,
                               const EditorDocument *input,
                               unsigned char current_round,
                               unsigned char total_rounds,
-                              unsigned int elapsed_ms)
+                              unsigned int elapsed_ms,
+                              unsigned char ascii)
 {
     char row[LCD_WIDTH];
     int view_start;
     int cursor_col;
 
     display_write_ledr(0);
-    display_show_ledg_progress(current_round, total_rounds);
-    display_write_typing_status(current_round, total_rounds, elapsed_ms);
+    display_show_ledg_progress(current_round, total_rounds, elapsed_ms);
+    display_write_typing_status(current_round,
+                                total_rounds,
+                                elapsed_ms,
+                                ascii);
 
     view_start = display_typing_view(input, question_len);
-    display_build_raw_view(question, question_len, view_start, row);
-    lcd_write_line(0, row, LCD_WIDTH);
     display_build_line_view(input, 0, view_start, row);
+    lcd_write_line(0, row, LCD_WIDTH);
+    display_build_raw_view(question, question_len, view_start, row);
     lcd_write_line(1, row, LCD_WIDTH);
 
     cursor_col = (int)input->cursor_col - view_start;
-    lcd_set_cursor(1, cursor_col);
+    lcd_set_cursor(0, cursor_col);
     lcd_set_cursor_mode(input->insert_mode);
 }
 
@@ -995,13 +1019,17 @@ void display_show_typing_game(const char *question,
  * Show the typing game completion screen while keeping final score outputs.
  */
 void display_show_typing_done(unsigned char total_rounds,
-                              unsigned int elapsed_ms)
+                              unsigned int elapsed_ms,
+                              unsigned char ascii)
 {
     char row[LCD_WIDTH];
 
     display_select_ledr_effect(DISPLAY_LEDR_FLAG_CONFIRM_BLINK);
-    display_show_ledg_progress(total_rounds, total_rounds);
-    display_write_typing_status(total_rounds, total_rounds, elapsed_ms);
+    display_show_ledg_progress(total_rounds, total_rounds, elapsed_ms);
+    display_write_typing_status(total_rounds,
+                                total_rounds,
+                                elapsed_ms,
+                                ascii);
     display_build_center_text(DISPLAY_INFO_OK_TEXT, row);
 
     lcd_write_line(0, "Game complete", 13);

@@ -2,6 +2,7 @@
 #include "system.h"
 #include "altera_avalon_pio_regs.h"
 #include "priv/alt_busy_sleep.h"
+#include "sys/alt_alarm.h"
 #include "display.h"
 #include "editor.h"
 #include "editor_input.h"
@@ -13,11 +14,11 @@
 #include "typing_game.h"
 
 #define MAIN_LOOP_DELAY_US 10000
-#define MAIN_LOOP_TICK_MS (MAIN_LOOP_DELAY_US / 1000u)
 #define KEYBOARD_DRAIN_LIMIT 16
 #define SW_INSERT_MASK 0x00010000u
 #define SW_NAV_MASK 0x00020000u
-#define SW_TYPING_READY_CLEAR_MASK 0x000000FFu
+#define SW_TYPING_INPUT_MASK 0x0000007Fu
+#define SW_TYPING_READY_CLEAR_MASK 0x0000007Fu
 #define VI_COMMAND_MAX_LEN 15u
 #define EDITOR_TOP_MARKER "EEPROM"
 #define EDITOR_BOTTOM_MARKER "END"
@@ -82,6 +83,7 @@ static unsigned int app_sd_line_count = 1;
 static SdCardResult app_sd_status = SDCARD_NO_SPI;
 static TypingGame app_typing_game;
 static unsigned int app_entropy = 0;
+static unsigned int app_typing_last_switch_input = 0;
 static const char *app_modal_message = "";
 static AppState app_modal_return_state = APP_STATE_EDITOR;
 static AppConfirmAction app_confirm_action = APP_CONFIRM_NONE;
@@ -115,6 +117,11 @@ static const char *const app_typing_menu_options[] = {
 static unsigned int app_read_switches(void)
 {
     return IORD_ALTERA_AVALON_PIO_DATA(PIO_IN_SW_BASE) & 0x3FFFFu;
+}
+
+static unsigned int app_timer_ticks(void)
+{
+    return alt_nticks();
 }
 
 /**
@@ -597,7 +604,7 @@ static int app_load_typing_game(unsigned int seed, AppState *state)
     return 1;
 }
 
-static void app_display_typing_game(void)
+static void app_display_typing_game(unsigned char ascii)
 {
     display_show_typing_game(
         typing_game_current_question(&app_typing_game),
@@ -605,27 +612,31 @@ static void app_display_typing_game(void)
         &app_typing_game.input,
         typing_game_current_round_number(&app_typing_game),
         typing_game_total_rounds(&app_typing_game),
-        typing_game_elapsed_ms(&app_typing_game));
+        typing_game_elapsed_ms(&app_typing_game),
+        ascii);
 }
 
-static void app_handle_typing_game_input(const KeyState *keys,
-                                         unsigned char ascii,
-                                         int nav_mode,
-                                         AppState *state)
+static int app_handle_typing_game_input(const KeyState *keys,
+                                        unsigned char ascii,
+                                        int nav_mode,
+                                        AppState *state)
 {
     TypingGameAnswerResult answer_result;
+    int input_changed;
 
-    editor_input_handle_keys(&app_typing_game.input,
-                             keys,
-                             ascii,
-                             nav_mode,
-                             0);
-    editor_input_drain_keyboard(&app_typing_game.input, 0);
+    input_changed = editor_input_handle_keys(&app_typing_game.input,
+                                             keys,
+                                             ascii,
+                                             nav_mode,
+                                             0);
+    input_changed |= editor_input_drain_keyboard(&app_typing_game.input, 0);
 
     answer_result = typing_game_accept_if_answer_correct(&app_typing_game);
     if (answer_result == TYPING_GAME_ANSWER_COMPLETE) {
         *state = APP_STATE_TYPING_DONE;
     }
+
+    return input_changed;
 }
 
 /**
@@ -740,26 +751,53 @@ int main(void)
                 app_display_sd_view();
             }
         } else if (state == APP_STATE_TYPING_READY) {
-            display_show_action_message("SW0-7 OFF",
+            display_show_action_message("SW6-0 OFF",
                                         TYPING_READY_ACTION_TEXT);
             if (key_pressed_edge(&keys, KEY_MASK_0)) {
                 state = APP_STATE_MENU;
             } else if (key_pressed_edge(&keys, KEY_MASK_1) &&
                        (switches & SW_TYPING_READY_CLEAR_MASK) == 0u) {
                 if (app_load_typing_game(app_entropy ^ switches, &state)) {
+                    app_typing_last_switch_input =
+                        switches & SW_TYPING_INPUT_MASK;
                     state = APP_STATE_TYPING_GAME;
                 }
             }
         } else if (state == APP_STATE_TYPING_GAME) {
             if (key_pressed_edge(&keys, KEY_MASK_0)) {
+                typing_game_pause_stopwatch(&app_typing_game,
+                                            app_timer_ticks());
                 menu_init(&typing_menu, app_typing_menu_options);
                 state = APP_STATE_TYPING_MENU;
             } else {
-                app_handle_typing_game_input(&keys, ascii, nav_mode, &state);
-                if (state == APP_STATE_TYPING_GAME) {
-                    typing_game_add_elapsed_ms(&app_typing_game,
-                                               MAIN_LOOP_TICK_MS);
-                    app_display_typing_game();
+                unsigned int now_ticks;
+                unsigned int switch_input;
+                int input_changed;
+
+                now_ticks = app_timer_ticks();
+                switch_input = switches & SW_TYPING_INPUT_MASK;
+                if (switch_input != app_typing_last_switch_input) {
+                    typing_game_start_stopwatch(&app_typing_game, now_ticks);
+                    app_typing_last_switch_input = switch_input;
+                }
+
+                input_changed =
+                    app_handle_typing_game_input(&keys, ascii, nav_mode, &state);
+                if (input_changed) {
+                    typing_game_start_stopwatch(&app_typing_game, now_ticks);
+                }
+                typing_game_update_stopwatch(&app_typing_game, now_ticks);
+
+                if (state == APP_STATE_TYPING_DONE) {
+                    typing_game_pause_stopwatch(&app_typing_game, now_ticks);
+                }
+                if (state == APP_STATE_TYPING_DONE) {
+                    display_show_typing_done(
+                        typing_game_total_rounds(&app_typing_game),
+                        typing_game_elapsed_ms(&app_typing_game),
+                        ascii);
+                } else {
+                    app_display_typing_game(ascii);
                 }
             }
         } else if (state == APP_STATE_TYPING_MENU) {
@@ -768,13 +806,18 @@ int main(void)
                 state = APP_STATE_MENU;
             } else if (menu_selection == TYPING_MENU_RESTART) {
                 typing_game_restart(&app_typing_game);
+                app_typing_last_switch_input = switches & SW_TYPING_INPUT_MASK;
                 state = APP_STATE_TYPING_GAME;
             } else if (menu_selection == TYPING_MENU_CONTINUE) {
+                typing_game_resume_stopwatch(&app_typing_game,
+                                             app_timer_ticks());
+                app_typing_last_switch_input = switches & SW_TYPING_INPUT_MASK;
                 state = APP_STATE_TYPING_GAME;
             }
         } else if (state == APP_STATE_TYPING_DONE) {
             display_show_typing_done(typing_game_total_rounds(&app_typing_game),
-                                     typing_game_elapsed_ms(&app_typing_game));
+                                     typing_game_elapsed_ms(&app_typing_game),
+                                     ascii);
             if (key_pressed_edge(&keys, KEY_MASK_0)) {
                 state = APP_STATE_MENU;
             }

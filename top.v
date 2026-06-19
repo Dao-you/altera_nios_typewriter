@@ -3,7 +3,7 @@ module top (
     input  [17:0] SW,
     input  [3:0]  KEY,
     output [17:0] LEDR,
-    output [7:0]  LEDG,
+    output [8:0]  LEDG,
     output [6:0]  HEX0,
     output [6:0]  HEX1,
     output [6:0]  HEX2,
@@ -53,6 +53,7 @@ module top (
 
     wire [17:0] ledr_export;
     wire [7:0] ledr_flag_export;
+    wire ledg8_export;
 
     wire sd_miso;
     wire sd_mosi;
@@ -132,7 +133,8 @@ module top (
         .pio_out_hex2_external_connection_export        (hex2_export),
         .pio_out_hex1_external_connection_export        (hex1_export),
         .pio_out_hex0_external_connection_export        (hex0_export),
-        .pio_out_ledg_external_connection_export        (LEDG),
+        .pio_out_ledg_external_connection_export        (LEDG[7:0]),
+        .pio_out_ledg8_external_connection_export       (ledg8_export),
         .pio_out_ledr_external_connection_export        (ledr_export),
         .pio_in_key_external_connection_export          (KEY),
         .pio_in_sw_external_connection_export           (SW),
@@ -145,5 +147,7 @@ module top (
         .spi_sdcard_external_SS_n                       (sd_ss_n),
         .pio_out_ledr_flag_external_connection_export   (ledr_flag_export)
     );
+
+    assign LEDG[8] = ledg8_export;
 
 endmodule

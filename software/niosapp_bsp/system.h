@@ -2,9 +2,9 @@
  * system.h - SOPC Builder system and BSP software package information
  *
  * Machine generated for CPU 'cpu' in SOPC Builder design 'nios'
- * SOPC Builder design path: D:/quartus/quartusFinalProject/nios.sopcinfo
+ * SOPC Builder design path: ../../nios.sopcinfo
  *
- * Generated: Fri Jun 19 23:14:59 CST 2026
+ * Generated: Sat Jun 20 05:10:26 CST 2026
  */
 
 /*
@@ -128,6 +128,7 @@
 #define __ALTERA_AVALON_PIO
 #define __ALTERA_AVALON_SPI
 #define __ALTERA_AVALON_SYSID_QSYS
+#define __ALTERA_AVALON_TIMER
 #define __ALTERA_NIOS2_QSYS
 
 
@@ -173,7 +174,7 @@
  */
 
 #define ALT_MAX_FD 32
-#define ALT_SYS_CLK none
+#define ALT_SYS_CLK TIMER
 #define ALT_TIMESTAMP_CLK none
 
 
@@ -765,6 +766,33 @@
 
 
 /*
+ * pio_out_ledg8 configuration
+ *
+ */
+
+#define ALT_MODULE_CLASS_pio_out_ledg8 altera_avalon_pio
+#define PIO_OUT_LEDG8_BASE 0x41190
+#define PIO_OUT_LEDG8_BIT_CLEARING_EDGE_REGISTER 0
+#define PIO_OUT_LEDG8_BIT_MODIFYING_OUTPUT_REGISTER 0
+#define PIO_OUT_LEDG8_CAPTURE 0
+#define PIO_OUT_LEDG8_DATA_WIDTH 1
+#define PIO_OUT_LEDG8_DO_TEST_BENCH_WIRING 0
+#define PIO_OUT_LEDG8_DRIVEN_SIM_VALUE 0
+#define PIO_OUT_LEDG8_EDGE_TYPE "NONE"
+#define PIO_OUT_LEDG8_FREQ 50000000
+#define PIO_OUT_LEDG8_HAS_IN 0
+#define PIO_OUT_LEDG8_HAS_OUT 1
+#define PIO_OUT_LEDG8_HAS_TRI 0
+#define PIO_OUT_LEDG8_IRQ -1
+#define PIO_OUT_LEDG8_IRQ_INTERRUPT_CONTROLLER_ID -1
+#define PIO_OUT_LEDG8_IRQ_TYPE "NONE"
+#define PIO_OUT_LEDG8_NAME "/dev/pio_out_ledg8"
+#define PIO_OUT_LEDG8_RESET_VALUE 0
+#define PIO_OUT_LEDG8_SPAN 16
+#define PIO_OUT_LEDG8_TYPE "altera_avalon_pio"
+
+
+/*
  * pio_out_ledr configuration
  *
  */
@@ -861,7 +889,33 @@
 #define SYSID_QSYS_IRQ_INTERRUPT_CONTROLLER_ID -1
 #define SYSID_QSYS_NAME "/dev/sysid_qsys"
 #define SYSID_QSYS_SPAN 8
-#define SYSID_QSYS_TIMESTAMP 1781881922
+#define SYSID_QSYS_TIMESTAMP 1781903384
 #define SYSID_QSYS_TYPE "altera_avalon_sysid_qsys"
+
+
+/*
+ * timer configuration
+ *
+ */
+
+#define ALT_MODULE_CLASS_timer altera_avalon_timer
+#define TIMER_ALWAYS_RUN 0
+#define TIMER_BASE 0x0
+#define TIMER_COUNTER_SIZE 32
+#define TIMER_FIXED_PERIOD 0
+#define TIMER_FREQ 50000000
+#define TIMER_IRQ 2
+#define TIMER_IRQ_INTERRUPT_CONTROLLER_ID 0
+#define TIMER_LOAD_VALUE 49999
+#define TIMER_MULT 0.0010
+#define TIMER_NAME "/dev/timer"
+#define TIMER_PERIOD 1
+#define TIMER_PERIOD_UNITS "ms"
+#define TIMER_RESET_OUTPUT 0
+#define TIMER_SNAPSHOT 1
+#define TIMER_SPAN 32
+#define TIMER_TICKS_PER_SEC 1000.0
+#define TIMER_TIMEOUT_PULSE_OUTPUT 0
+#define TIMER_TYPE "altera_avalon_timer"
 
 #endif /* __SYSTEM_H_ */

@@ -2,11 +2,11 @@
 <sch:Settings xmlns:sch="http://www.altera.com/embeddedsw/bsp/schema">
         <BspType>hal</BspType>
         <BspVersion>default</BspVersion>
-        <BspGeneratedTimeStamp>2026/6/19 下午 11:19:29</BspGeneratedTimeStamp>
-        <BspGeneratedUnixTimeStamp>1781882369172</BspGeneratedUnixTimeStamp>
+        <BspGeneratedTimeStamp>2026/6/20 上午 05:10:26</BspGeneratedTimeStamp>
+        <BspGeneratedUnixTimeStamp>1781903426565</BspGeneratedUnixTimeStamp>
         <BspGeneratedLocation>D:\quartus\quartusFinalProject\software\niosapp_bsp</BspGeneratedLocation>
         <BspSettingsFile>settings.bsp</BspSettingsFile>
-        <SopcDesignFile>D:\quartus\quartusFinalProject\nios.sopcinfo</SopcDesignFile>
+        <SopcDesignFile>..\..\nios.sopcinfo</SopcDesignFile>
         <JdiFile>default</JdiFile>
         <Cpu>cpu</Cpu>
         <SchemaVersion>1.9</SchemaVersion>
@@ -14,7 +14,7 @@
                 <SettingName>hal.sys_clk_timer</SettingName>
                 <Identifier>ALT_SYS_CLK</Identifier>
                 <Type>UnquotedString</Type>
-                <Value>none</Value>
+                <Value>timer</Value>
                 <DefaultValue>none</DefaultValue>
                 <DestinationFile>system_h_define</DestinationFile>
                 <Description>Slave descriptor of the system clock timer device. This device provides a periodic interrupt ("tick") and is typically required for RTOS use. This setting defines the value of ALT_SYS_CLK in system.h.</Description>
@@ -863,6 +863,12 @@
                 <Group xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
         </Setting>
         <MemoryMap>
+                <slaveDescriptor>timer</slaveDescriptor>
+                <addressRange>0x00000000 - 0x0000001F</addressRange>
+                <addressSpan>32</addressSpan>
+                <attributes>timer</attributes>
+        </MemoryMap>
+        <MemoryMap>
                 <slaveDescriptor>onchip_memory</slaveDescriptor>
                 <addressRange>0x00020000 - 0x0003FFFF</addressRange>
                 <addressSpan>131072</addressSpan>
@@ -1017,6 +1023,12 @@
                 <addressRange>0x00041188 - 0x0004118F</addressRange>
                 <addressSpan>8</addressSpan>
                 <attributes>printable</attributes>
+        </MemoryMap>
+        <MemoryMap>
+                <slaveDescriptor>pio_out_ledg8</slaveDescriptor>
+                <addressRange>0x00041190 - 0x0004119F</addressRange>
+                <addressSpan>16</addressSpan>
+                <attributes/>
         </MemoryMap>
         <LinkerSection>
                 <sectionName>.text</sectionName>

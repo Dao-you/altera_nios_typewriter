@@ -121,13 +121,15 @@ void display_show_typing_game(const char *question,
                               const EditorDocument *input,
                               unsigned char current_round,
                               unsigned char total_rounds,
-                              unsigned int elapsed_ms);
+                              unsigned int elapsed_ms,
+                              unsigned char ascii);
 
 /**
  * Show the typing game completion screen while keeping final score outputs.
  */
 void display_show_typing_done(unsigned char total_rounds,
-                              unsigned int elapsed_ms);
+                              unsigned int elapsed_ms,
+                              unsigned char ascii);
 
 /**
  * Set or clear one LEDG indicator through the display controller.

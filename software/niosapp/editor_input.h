@@ -20,15 +20,15 @@ int editor_input_apply_code(EditorDocument *editor,
 /**
  * Dispatch one debounced SW/KEY event set to editor actions.
  */
-void editor_input_handle_keys(EditorDocument *editor,
-                              const KeyState *keys,
-                              unsigned char ascii,
-                              int nav_mode,
-                              int allow_newline);
+int editor_input_handle_keys(EditorDocument *editor,
+                             const KeyState *keys,
+                             unsigned char ascii,
+                             int nav_mode,
+                             int allow_newline);
 
 /**
  * Drain the small PS/2 hardware FIFO into editor actions.
  */
-void editor_input_drain_keyboard(EditorDocument *editor, int allow_newline);
+int editor_input_drain_keyboard(EditorDocument *editor, int allow_newline);
 
 #endif

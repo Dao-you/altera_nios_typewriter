@@ -126,6 +126,9 @@ void typing_game_init(TypingGame *game)
     game->current_round = 0;
     game->total_rounds = TYPING_GAME_ROUNDS;
     game->elapsed_ms = 0;
+    game->last_tick = 0;
+    game->timer_started = 0;
+    game->timer_running = 0;
 }
 
 /**
@@ -165,18 +168,71 @@ void typing_game_restart(TypingGame *game)
     game->input.insert_mode = insert_mode;
     game->current_round = 0;
     game->elapsed_ms = 0;
+    game->last_tick = 0;
+    game->timer_started = 0;
+    game->timer_running = 0;
 }
 
-/**
- * Add elapsed time to the software stopwatch.
- */
-void typing_game_add_elapsed_ms(TypingGame *game, unsigned int delta_ms)
+static void typing_game_add_elapsed_ms(TypingGame *game,
+                                       unsigned int delta_ms)
 {
     if (game->elapsed_ms <= 5999000u - delta_ms) {
         game->elapsed_ms += delta_ms;
     } else {
         game->elapsed_ms = 5999000u;
     }
+}
+
+/**
+ * Start the stopwatch if it has not started yet.
+ */
+void typing_game_start_stopwatch(TypingGame *game, unsigned int now_ticks)
+{
+    if (game->timer_running) {
+        return;
+    }
+
+    game->timer_started = 1;
+    game->timer_running = 1;
+    game->last_tick = now_ticks;
+}
+
+/**
+ * Resume the stopwatch after a pause, but only if it had already started.
+ */
+void typing_game_resume_stopwatch(TypingGame *game, unsigned int now_ticks)
+{
+    if (!game->timer_started || game->timer_running) {
+        return;
+    }
+
+    game->timer_running = 1;
+    game->last_tick = now_ticks;
+}
+
+/**
+ * Refresh elapsed time from the Qsys system timer tick.
+ */
+void typing_game_update_stopwatch(TypingGame *game, unsigned int now_ticks)
+{
+    unsigned int delta_ticks;
+
+    if (!game->timer_running) {
+        return;
+    }
+
+    delta_ticks = now_ticks - game->last_tick;
+    game->last_tick = now_ticks;
+    typing_game_add_elapsed_ms(game, delta_ticks);
+}
+
+/**
+ * Pause the stopwatch and preserve elapsed time.
+ */
+void typing_game_pause_stopwatch(TypingGame *game, unsigned int now_ticks)
+{
+    typing_game_update_stopwatch(game, now_ticks);
+    game->timer_running = 0;
 }
 
 static int typing_game_current_answer_matches(const TypingGame *game)
@@ -267,4 +323,9 @@ unsigned char typing_game_total_rounds(const TypingGame *game)
 unsigned int typing_game_elapsed_ms(const TypingGame *game)
 {
     return game->elapsed_ms;
+}
+
+int typing_game_stopwatch_started(const TypingGame *game)
+{
+    return game->timer_started != 0u;
 }
