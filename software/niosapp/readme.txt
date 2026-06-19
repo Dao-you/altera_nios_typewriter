@@ -15,17 +15,29 @@ INPUTS:
 - SW16: edit mode, 0 = overwrite and 1 = insert.
 - SW17: navigation mode, 0 = left/right and 1 = up/down.
 - Editor mode:
-  - KEY0: open the editor menu.
+  - KEY0: open the editor VI command page.
   - KEY1: write the current ASCII byte; 0x08 backspaces, including joining
     with the previous line at column 0, 0x0A creates a new line, and 0x7F
     deletes the character under the cursor.
   - KEY3: move left or up.
   - KEY2: move right or down.
+- Editor VI command page:
+  - Row 1 starts with ":" and accepts command input.
+  - KEY1 appends the current SW[6:0] ASCII byte. 0x08/0x7F backspaces and
+    0x0A executes the command.
+  - PS/2 printable keys append directly. PS/2 Backspace/Delete delete a
+    command character, and Enter executes the command.
+  - KEY0 executes the command. An empty command returns to editor mode.
+  - KEY2 opens the horizontal editor menu.
+  - Commands: w saves, q quits, wq and x save then quit, e! restores the whole
+    document from EEPROM.
 - Editor menu:
   - KEY3: move to the previous option.
   - KEY2: move to the next option.
-  - KEY0: confirm the selected option and return to editor mode.
-  - Options: Save to ROM, Clear this line, Clear All, Move to head, Move to end.
+  - KEY0: confirm the selected option.
+  - Pressing KEY3 on Save to ROM returns to the VI command page.
+  - Options: Save to ROM, Quit, Restore whole, Clear this line, Clear All,
+    Move to head, Move to end, Cancel.
 - SD view mode:
   - KEY1: retry reading QUESTION.TXT.
   - KEY2/KEY3: scroll down/up by one text line.
@@ -35,7 +47,10 @@ OUTPUTS:
 - Menu LCD: first row shows the selected option name. The second row uses
   column 1 for "<" when an option exists to the left, column 14 for ">" when
   an option exists to the right, and a centered decimal counter such as "1/2".
-  Startup and editor menus share this layout.
+  Startup and editor menus share this layout. The editor menu has a VI command
+  page before the first option.
+- VI command LCD: row 1 shows ":" followed by the command buffer and places
+  the LCD cursor after it. Row 2 shows "< VI COMMAND >".
 - LCD: the EEPROM editor main view uses the first row for a centered blinking
   "EEPROM" marker and the second row for the current editor line through a
   16-column viewport. The viewport scrolls on long lines after the cursor
@@ -45,7 +60,8 @@ OUTPUTS:
 - Modal messages: informational messages show "KEY0 OK" centered on row 2 and
   return on KEY0 with 2 Hz LEDR blinking. Confirmation messages show
   "KEY1YES KEY0NO" and use KEY1 for yes / KEY0 for no with 2 Hz LEDR blinking.
-  Error messages show "KEY0 OK" centered and use 5 Hz LEDR blinking.
+  Dirty Quit uses "Quit no save?". Error messages show "KEY0 OK" centered and
+  use 5 Hz LEDR blinking.
 - HEX7..HEX6: current line number, decimal.
 - HEX5..HEX4: cursor column, decimal.
 - HEX3..HEX2: total line count, decimal.
@@ -64,10 +80,11 @@ OUTPUTS:
 
 SOURCE FILES:
 - main.c: application loop and event dispatch.
-  It owns modal message states for informational, confirmation, and error
-  prompts.
+  It owns editor VI command parsing, modal message states for informational,
+  confirmation, and error prompts, and the EEPROM-backed quit/restore actions.
 - menu.c/.h: shared LCD menu state machine. Callers provide an option list;
   KEY3/KEY2 move left/right and KEY0 returns the selected option index.
+  menu_update_with_left_edge() lets a caller attach a page before option 0.
 - editor.c/.h: document buffer and editing operations.
 - key.c/.h: active-low key debounce and edge detection.
 - display.c/.h, lcd.c/.h, seven_seg.c/.h: board display output.

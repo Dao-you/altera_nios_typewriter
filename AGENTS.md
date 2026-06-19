@@ -11,7 +11,7 @@
 - 開機後 LCD 先顯示共用選單：`KEY3` / `KEY2` 在選項間左右移動，`KEY0` 確認。目前選項為 `EEPROM EDITOR` 與 `SD QUESTION`。
 - `SW[6:0]` 輸入 7-bit ASCII。
 - 進入文字編輯器後，`KEY1` 寫入目前 ASCII；若 ASCII 是 `0x08` 執行 BS 刪除左側字元，行頭時刪除上一行 LF 並合併行，`0x0A` 執行 LF 換行，`0x7F` 執行 DEL 刪除游標所在字元。
-- 進入文字編輯器後，`KEY0` 開啟共用 editor 選單；選項為 `Save to ROM`、`Clear this line`、`Clear All`、`Move to head`、`Move to end`。
+- 進入文字編輯器後，`KEY0` 先開啟 editor command mode。第一列以 `:` 提供簡易 VI 指令輸入，第二列顯示 `< VI COMMAND >`；`KEY2` 可從 command mode 進入水平 editor 選單。支援指令為空值返回、`w` 存檔、`q` 離開、`wq` / `x` 存檔後離開、`e!` 重新載入 EEPROM 內整份文件。水平選單選項為 `Save to ROM`、`Quit`、`Restore whole`、`Clear this line`、`Clear All`、`Move to head`、`Move to end`、`Cancel`；在第一個選項按 `KEY3` 會回到 command mode。
 - `SW16` 切換 Insert / Overwrite：`0` 為 Overwrite，`1` 為 Insert。
 - `SW17` 切換移動模式：左右 / 上下。
 - `KEY3` 往前 / 往上，`KEY2` 往後 / 往下。
@@ -45,10 +45,10 @@
 
 目前 `software/niosapp/` 已實作：
 
-- `main.c`：開機選單與主迴圈狀態切換；開機時提供選項列表給 `menu.c`，確認後進入 EEPROM/editor 或 SD `QUESTION.TXT` 讀取測試畫面；editor 內 `KEY0` 進入 editor 選單，`KEY1` 寫入，`KEY2/KEY3` 移動。
+- `main.c`：開機選單與主迴圈狀態切換；開機時提供選項列表給 `menu.c`，確認後進入 EEPROM/editor 或 SD `QUESTION.TXT` 讀取測試畫面；editor 內 `KEY0` 進入 `:VI COMMAND` command mode，再可用 `KEY2` 進入 editor 選單；`KEY1` 寫入，`KEY2/KEY3` 移動。
 - `editor.c/.h`：固定大小 `EditorDocument`、Insert / Overwrite、BS、LF、DEL、左右上下移動、清除目前行、清除全文、移到文件開頭/結尾、dirty flag、序列化 / 反序列化。
-- `menu.c/.h`：共用 LCD 選單狀態機；呼叫端只提供 null-terminated 選項列表，`KEY3` / `KEY2` 左右移動，`KEY0` 確認並回傳 option index。
-- `display.c/.h`：LEDR、LEDG、HEX、LCD 更新；HEX7~HEX2 使用十進位，HEX1~HEX0 顯示 ASCII 十六進位；LCD 支援一般 editor viewport、EEPROM editor title viewport、上下列閃爍 marker、互動式一般/確認/錯誤訊息；共用選單畫面第一列顯示選項名稱，第二列用 `<` / `>` 與十進位 `目前/總數` 顯示位置；EEPROM 讀寫與 SD 讀取期間顯示 LEDR 跑馬燈。
+- `menu.c/.h`：共用 LCD 選單狀態機；呼叫端只提供 null-terminated 選項列表，`KEY3` / `KEY2` 左右移動，`KEY0` 確認並回傳 option index；需要第 0 頁時可用 `menu_update_with_left_edge()` 在第一個選項按 `KEY3` 時回呼呼叫端。
+- `display.c/.h`：LEDR、LEDG、HEX、LCD 更新；HEX7~HEX2 使用十進位，HEX1~HEX0 顯示 ASCII 十六進位；LCD 支援一般 editor viewport、EEPROM editor title viewport、VI command page、上下列閃爍 marker、互動式一般/確認/錯誤訊息；共用選單畫面第一列顯示選項名稱，第二列用 `<` / `>` 與十進位 `目前/總數` 顯示位置；EEPROM 讀寫與 SD 讀取期間顯示 LEDR 跑馬燈。
 - `lcd.c/.h`：LCD1602 8-bit PIO bit-bang、兩行文字更新、LCD 內建 cursor 模式切換。
 - `key.c/.h`：active-low KEY 讀取、簡單 debounce、pressed-edge 偵測。
 - `keyboard.c/.h`：讀取 Verilog PS/2 keyboard FIFO PIO，將 decoded byte 交回現有 editor action。
@@ -167,7 +167,7 @@
 
 為了程式碼可維護性，UI 相關邏輯盡量寫成共用模組，不要在 `main.c` 或各功能模組裡散落直接控制 LEDR、LEDG、HEX、LCD 的程式。新增畫面、狀態燈、跑馬燈、進度條、閃爍訊息或 LCD 狀態文字時，優先擴充 `display.c/.h` 的共用函數，並同步更新根目錄 `UI.md`。`lcd.c/.h` 和 `seven_seg.c/.h` 是 display 層使用的底層 helper；除非正在修改驅動本身，一般功能流程不應直接操作它們或直接寫 display PIO。
 
-新增多選項 LCD menu 時，優先使用 `menu.c/.h`：呼叫端只傳入 null-terminated option list，`menu_update()` 會處理 `KEY3` 向左、`KEY2` 向右、`KEY0` 確認，LCD 版面由 `display_show_menu_item()` 統一輸出。
+新增多選項 LCD menu 時，優先使用 `menu.c/.h`：呼叫端只傳入 null-terminated option list，`menu_update()` 會處理 `KEY3` 向左、`KEY2` 向右、`KEY0` 確認，LCD 版面由 `display_show_menu_item()` 統一輸出。若選單前方還有第 0 頁，使用 `menu_update_with_left_edge()` 在第一個選項收到 `KEY3` 時回呼呼叫端切回該頁。
 
 目前核心資料結構使用 `editor.h` 的固定大小 `EditorDocument`：
 
@@ -227,6 +227,7 @@ LCD 常用重點：
 - 初始化可參考 `lcd_text_driver.v`：`0x38`、`0x38`、`0x38`、`0x0C`、`0x01`、`0x06`、`0x80`。
 - 目前 C 版用 LCD 內建 cursor 顯示編輯位置：Insert 模式使用 non-blinking underline cursor，Overwrite 模式使用 blinking block cursor。
 - 一般 editor viewport 第一列顯示目前行，第二列顯示下一行；長行會依游標位置水平捲動 16 欄 viewport。目前 EEPROM editor 主畫面改用第一列 `EEPROM` 閃爍 marker、第二列目前行，游標在第二列。
+- Editor command mode 第一列顯示 `:` 與目前 VI command buffer，LCD cursor 放在命令尾端；第二列在 `<` / `>` 間顯示 `VI COMMAND`。`KEY1` 可寫入目前 `SW[6:0]` ASCII，PS/2 可直接輸入 printable 字元，Backspace/Delete 刪除命令字元，Enter 或 `KEY0` 執行。
 - 若目前行是文件最後一行，第二列顯示 `------END-------`，並在顯示 / 空白之間以接近 LCD 內建游標的頻率閃爍，讓它不會被誤認為文件內容。此為 C 端依主迴圈 refresh tick 的頻率近似，並未讀回 LCD 內部 blink 相位。
 - 一般訊息畫面第一列顯示訊息、第二列置中 `KEY0 OK`，等待 `KEY0` 返回，LEDR 使用 2 Hz 全燈閃爍；確認訊息第二列顯示 `KEY1YES KEY0NO`，`KEY1` 確認、`KEY0` 取消，LEDR 使用 2 Hz 全燈閃爍；錯誤訊息第二列置中 `KEY0 OK`，LEDR 使用 5 Hz 全燈閃爍。
 - Clear display / return home 需約 1.5 ms 以上，其餘 command/data 通常至少約 40 us。
@@ -353,8 +354,9 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - 開機選單按 `KEY3` / `KEY2` 可左右切換 `EEPROM EDITOR` 與 `SD QUESTION`，按 `KEY0` 確認。
 - 開機選單確認 `EEPROM EDITOR` 進入原本 EEPROM/editor 流程，若 EEPROM 有有效文件會載入，否則空白文件開始。
 - 開機選單確認 `SD QUESTION` 會讀 SD 卡 FAT16/FAT32 根目錄短檔名 `QUESTION.TXT`；成功後 LCD 以兩列顯示內容，`KEY2/KEY3` 捲動，`KEY1` 可重新讀檔，`KEY0` 可切回 EEPROM/editor。
-- editor 主畫面按 `KEY0` 進入共用 editor 選單，`KEY3` / `KEY2` 可左右切換 `Save to ROM`、`Clear this line`、`Clear All`、`Move to head`、`Move to end`，按 `KEY0` 確認後回到 editor 主畫面。
-- editor 選單確認 `Clear this line` 會清空目前行並將游標移到該行開頭；確認 `Clear All` 會重設成單一空白行；確認 `Move to head` / `Move to end` 只移動游標，不設定 dirty。
+- editor 主畫面按 `KEY0` 進入 `:VI COMMAND` command mode；空指令返回 editor，`w` 存檔，`q` 離開，`wq` / `x` 存檔後離開，`e!` restore whole。若 dirty 時執行 `q`，會以確認訊息提示 `Quit no save?`。
+- command mode 按 `KEY2` 進入 editor 選單；選單可用 `KEY3` / `KEY2` 左右切換 `Save to ROM`、`Quit`、`Restore whole`、`Clear this line`、`Clear All`、`Move to head`、`Move to end`、`Cancel`，按 `KEY0` 確認；在 `Save to ROM` 按 `KEY3` 會回到 command mode。
+- editor 選單確認 `Quit` 時，若 dirty 會以確認訊息提示 `Quit no save?`；確認 `Restore whole` 會重新讀取 EEPROM 內整份文件；確認 `Cancel` 會直接返回 editor。確認 `Clear this line` 會清空目前行並將游標移到該行開頭；確認 `Clear All` 會重設成單一空白行；確認 `Move to head` / `Move to end` 只移動游標，不設定 dirty。
 - `SW[6:0]` 可讀出並在 HEX1~HEX0 顯示 ASCII hex。
 - `SW[6:0] = 0x08` 時 KEY1 執行 BS，且游標在行頭時會刪除上一行 LF 並合併行；`0x0A` 時 KEY1 執行 LF，`0x7F` 時 KEY1 執行 DEL。
 - `SW[15]` 為 reset：`0` reset，`1` run。

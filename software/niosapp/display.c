@@ -18,6 +18,7 @@
 #define DISPLAY_MENU_RIGHT_COL (LCD_WIDTH - 2)
 #define DISPLAY_INFO_OK_TEXT "KEY0 OK"
 #define DISPLAY_CONFIRM_TEXT "KEY1YES KEY0NO"
+#define DISPLAY_VI_COMMAND_TEXT "VI COMMAND"
 
 static int display_lcd_view_start = 0;
 static unsigned int display_marker_blink_tick = 0;
@@ -645,6 +646,49 @@ void display_show_message(const char *line0, const char *line1)
     lcd_write_line(0, line0, display_text_length(line0, LCD_WIDTH));
     lcd_write_line(1, line1, display_text_length(line1, LCD_WIDTH));
     lcd_hide_cursor();
+}
+
+/**
+ * Show the editor menu command prompt.
+ */
+void display_show_vi_command(const char *command)
+{
+    char row0[LCD_WIDTH];
+    char row1[LCD_WIDTH];
+    unsigned int command_length;
+    unsigned int label_length;
+    unsigned int label_start;
+    unsigned int i;
+
+    display_write_ledr(0);
+    display_clear_ledg();
+
+    for (i = 0; i < LCD_WIDTH; ++i) {
+        row0[i] = ' ';
+        row1[i] = ' ';
+    }
+
+    row0[0] = ':';
+    command_length = display_marker_word_length(command);
+    if (command_length > LCD_WIDTH - 1u) {
+        command_length = LCD_WIDTH - 1u;
+    }
+    for (i = 0; i < command_length; ++i) {
+        row0[i + 1u] = command[i];
+    }
+
+    label_length = display_marker_word_length(DISPLAY_VI_COMMAND_TEXT);
+    label_start = (LCD_WIDTH - label_length) / 2u;
+    row1[DISPLAY_MENU_LEFT_COL] = '<';
+    row1[DISPLAY_MENU_RIGHT_COL] = '>';
+    for (i = 0; i < label_length; ++i) {
+        row1[label_start + i] = DISPLAY_VI_COMMAND_TEXT[i];
+    }
+
+    lcd_write_line(0, row0, LCD_WIDTH);
+    lcd_write_line(1, row1, LCD_WIDTH);
+    lcd_set_cursor(0, (int)command_length + 1);
+    lcd_set_cursor_mode(1);
 }
 
 static void display_show_key_message(const char *message,

@@ -46,7 +46,10 @@ static void menu_clamp_selection(MenuState *menu)
     }
 }
 
-int menu_update(MenuState *menu, const KeyState *keys)
+int menu_update_with_left_edge(MenuState *menu,
+                               const KeyState *keys,
+                               MenuEdgeCallback left_edge_callback,
+                               void *left_edge_context)
 {
     int confirmed;
 
@@ -57,8 +60,13 @@ int menu_update(MenuState *menu, const KeyState *keys)
     menu_clamp_selection(menu);
 
     if (keys != 0 && key_pressed_edge(keys, KEY_MASK_3) &&
-        menu->selected_index > 0u) {
-        --menu->selected_index;
+        menu->option_count > 0u) {
+        if (menu->selected_index > 0u) {
+            --menu->selected_index;
+        } else if (left_edge_callback != 0) {
+            left_edge_callback(left_edge_context);
+            return MENU_NO_SELECTION;
+        }
     }
     if (keys != 0 && key_pressed_edge(keys, KEY_MASK_2) &&
         menu->selected_index + 1u < menu->option_count) {
@@ -76,4 +84,9 @@ int menu_update(MenuState *menu, const KeyState *keys)
                            menu->option_count);
 
     return confirmed;
+}
+
+int menu_update(MenuState *menu, const KeyState *keys)
+{
+    return menu_update_with_left_edge(menu, keys, 0, 0);
 }

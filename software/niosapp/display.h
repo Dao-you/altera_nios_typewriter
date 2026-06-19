@@ -64,6 +64,14 @@ void display_show_menu_item(const char *option_name,
 void display_show_message(const char *line0, const char *line1);
 
 /**
+ * Show the editor menu command prompt.
+ *
+ * The first row starts with ':' and places the LCD cursor after the command.
+ * The second row shows the VI COMMAND page label with menu-style arrows.
+ */
+void display_show_vi_command(const char *command);
+
+/**
  * Show an informational message that returns on KEY0.
  */
 void display_show_info_message(const char *message);
