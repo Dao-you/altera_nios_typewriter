@@ -65,6 +65,7 @@ Desktop.ini
 # Nios II generated dependency/status files
 /software/**/.metadata/
 /software/**/.settings/
+/software/**/.force_relink
 /software/**/Debug/
 /software/**/Release/
 /software/niosapp_bsp/HAL/
