@@ -9,7 +9,7 @@ INPUTS:
   - KEY3: move to the previous option.
   - KEY2: move to the next option.
   - KEY0: confirm the selected option.
-  - Options: EEPROM EDITOR, SD QUESTION.
+  - Options: EEPROM EDITOR, SD QUESTION, TYPING GAME.
 - SW[6:0]: 7-bit ASCII input.
 - SW15: active-low Nios II reset, 0 = reset and 1 = run.
 - SW16: edit mode, 0 = overwrite and 1 = insert.
@@ -42,6 +42,19 @@ INPUTS:
   - KEY1: retry reading QUESTION.TXT.
   - KEY2/KEY3: scroll down/up by one text line.
   - KEY0: enter the EEPROM-backed text editor.
+- Typing game:
+  - Starts from the TYPING GAME startup-menu option.
+  - The ready screen asks for SW0..SW7 to be off. KEY1 starts only when those
+    switches are clear; KEY0 returns to the startup menu.
+  - On start, QUESTION.TXT is read from SD and ten non-empty lines are selected
+    randomly. Each line is one question; lines longer than 99 characters are
+    truncated to match the shared editor line buffer.
+  - Input uses the same SW[6:0] + KEY1 and PS/2 printable-key path as the text
+    editor. Backspace/Delete and left/right movement work through the shared
+    editor input dispatcher. LF/Enter is ignored so each answer stays one line.
+  - The game advances automatically when the typed answer exactly matches the
+    current question.
+  - KEY0 opens the typing-game menu: Quit, Restart, Continue.
 
 OUTPUTS:
 - Menu LCD: first row shows the selected option name. The second row uses
@@ -83,16 +96,30 @@ OUTPUTS:
 - LEDG5: EEPROM error.
 - LEDG6: current-line text remains hidden to the right of the LCD viewport.
 - LEDG7: unsaved changes.
+- Typing game outputs:
+  - LCD row 1: current question viewport.
+  - LCD row 2: current answer viewport with cursor.
+  - LEDG7..LEDG0: current-question progress over the ten-question game.
+  - HEX7..HEX6: current question number, decimal.
+  - HEX5..HEX4: total question count, decimal.
+  - HEX3..HEX2: elapsed minutes, decimal.
+  - HEX1..HEX0: elapsed seconds, decimal.
 
 SOURCE FILES:
 - main.c: application loop and event dispatch.
   It owns editor VI command parsing, modal message states for informational,
-  confirmation, and error prompts, and the EEPROM-backed quit/restore actions.
+  confirmation, and error prompts, typing-game app states, and the
+  EEPROM-backed quit/restore actions.
 - menu.c/.h: shared LCD menu state machine. Callers provide an option list;
   KEY3/KEY2 move left/right and KEY0 returns the selected option index.
   menu_update_with_left_edge() lets a caller attach a page before option 0,
   and keeps the left arrow visible on option 0.
 - editor.c/.h: document buffer and editing operations.
+- editor_input.c/.h: shared dispatch from debounced SW/KEY and PS/2 decoded
+  bytes into EditorDocument operations. The EEPROM editor allows LF; the typing
+  game reuses the same path with LF disabled for single-line answers.
+- typing_game.c/.h: typing-game question sampling, answer comparison, round
+  state, restart, and software stopwatch state.
 - key.c/.h: active-low key debounce and edge detection.
 - display.c/.h, lcd.c/.h, seven_seg.c/.h: board display output.
   display.c centralizes LEDR progress, activity marquee, modal messages,
@@ -119,3 +146,6 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 When Qsys changes, regenerate software/niosapp_bsp before building the app.
 The SD test requires SPI_SDCARD_BASE in software/niosapp_bsp/system.h.
 The hardware LEDR effect path requires PIO_OUT_LEDR_FLAG_BASE in system.h.
+The typing-game stopwatch currently uses the 10 ms main-loop tick because this
+BSP has ALT_SYS_CLK set to none. Add a Qsys interval timer and regenerate the
+BSP if stricter timing accuracy is needed.

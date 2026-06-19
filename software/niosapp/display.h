@@ -102,11 +102,32 @@ void display_show_confirm_message(const char *message);
 void display_show_error_message(const char *message);
 
 /**
+ * Show a custom two-action message with the 2 Hz message LEDR effect.
+ */
+void display_show_action_message(const char *message, const char *action_text);
+
+/**
  * Show two newline-delimited text rows starting at first_line.
  */
 void display_show_text_page(const char *text,
                             unsigned int length,
                             unsigned int first_line);
+
+/**
+ * Show the typing game prompt/input view and game status outputs.
+ */
+void display_show_typing_game(const char *question,
+                              unsigned char question_len,
+                              const EditorDocument *input,
+                              unsigned char current_round,
+                              unsigned char total_rounds,
+                              unsigned int elapsed_ms);
+
+/**
+ * Show the typing game completion screen while keeping final score outputs.
+ */
+void display_show_typing_done(unsigned char total_rounds,
+                              unsigned int elapsed_ms);
 
 /**
  * Set or clear one LEDG indicator through the display controller.

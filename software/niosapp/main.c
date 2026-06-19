@@ -4,19 +4,24 @@
 #include "priv/alt_busy_sleep.h"
 #include "display.h"
 #include "editor.h"
+#include "editor_input.h"
 #include "eeprom.h"
 #include "key.h"
 #include "keyboard.h"
 #include "menu.h"
 #include "sdcard.h"
+#include "typing_game.h"
 
 #define MAIN_LOOP_DELAY_US 10000
+#define MAIN_LOOP_TICK_MS (MAIN_LOOP_DELAY_US / 1000u)
 #define KEYBOARD_DRAIN_LIMIT 16
 #define SW_INSERT_MASK 0x00010000u
 #define SW_NAV_MASK 0x00020000u
+#define SW_TYPING_READY_CLEAR_MASK 0x000000FFu
 #define VI_COMMAND_MAX_LEN 15u
 #define EDITOR_TOP_MARKER "EEPROM"
 #define EDITOR_BOTTOM_MARKER "END"
+#define TYPING_READY_ACTION_TEXT "KEY1GO KEY0EXIT"
 
 typedef enum {
     APP_STATE_MENU = 0,
@@ -24,6 +29,10 @@ typedef enum {
     APP_STATE_EDITOR_COMMAND,
     APP_STATE_EDITOR_MENU,
     APP_STATE_SD_VIEW,
+    APP_STATE_TYPING_READY,
+    APP_STATE_TYPING_GAME,
+    APP_STATE_TYPING_MENU,
+    APP_STATE_TYPING_DONE,
     APP_STATE_INFO_MESSAGE,
     APP_STATE_CONFIRM_MESSAGE,
     APP_STATE_ERROR_MESSAGE
@@ -31,7 +40,8 @@ typedef enum {
 
 typedef enum {
     APP_MENU_EDITOR = 0,
-    APP_MENU_SD_QUESTION = 1
+    APP_MENU_SD_QUESTION = 1,
+    APP_MENU_TYPING_GAME = 2
 } AppMenuChoice;
 
 typedef enum {
@@ -57,6 +67,12 @@ typedef enum {
     APP_CONFIRM_QUIT_NO_SAVE
 } AppConfirmAction;
 
+typedef enum {
+    TYPING_MENU_QUIT = 0,
+    TYPING_MENU_RESTART,
+    TYPING_MENU_CONTINUE
+} TypingMenuChoice;
+
 static char app_vi_command[VI_COMMAND_MAX_LEN + 1u];
 static unsigned char app_vi_command_len = 0;
 static char app_sd_text[SDCARD_TEXT_BUFFER_SIZE];
@@ -64,12 +80,15 @@ static unsigned int app_sd_text_length = 0;
 static unsigned int app_sd_first_line = 0;
 static unsigned int app_sd_line_count = 1;
 static SdCardResult app_sd_status = SDCARD_NO_SPI;
+static TypingGame app_typing_game;
+static unsigned int app_entropy = 0;
 static const char *app_modal_message = "";
 static AppState app_modal_return_state = APP_STATE_EDITOR;
 static AppConfirmAction app_confirm_action = APP_CONFIRM_NONE;
 static const char *const app_start_menu_options[] = {
     "EEPROM EDITOR",
     "SD QUESTION",
+    "TYPING GAME",
     0
 };
 static const char *const app_editor_menu_options[] = {
@@ -81,6 +100,12 @@ static const char *const app_editor_menu_options[] = {
     "Move to head",
     "Move to end",
     "Cancel",
+    0
+};
+static const char *const app_typing_menu_options[] = {
+    "Quit",
+    "Restart",
+    "Continue",
     0
 };
 
@@ -528,71 +553,78 @@ static void app_load_sd_question(void)
            app_sd_text_length);
 }
 
-/**
- * Dispatch one debounced key event set to editor and EEPROM actions.
- */
-static void app_handle_keys(EditorDocument *editor,
-                            const KeyState *keys,
-                            unsigned char ascii,
-                            int nav_mode)
+static int app_sd_read_ok_for_text(SdCardResult result)
 {
-    if (key_pressed_edge(keys, KEY_MASK_1)) {
-        editor_write_ascii(editor, ascii);
-    }
-    if (key_pressed_edge(keys, KEY_MASK_3)) {
-        if (nav_mode) {
-            editor_move_up(editor);
-        } else {
-            editor_move_left(editor);
-        }
-    }
-    if (key_pressed_edge(keys, KEY_MASK_2)) {
-        if (nav_mode) {
-            editor_move_down(editor);
-        } else {
-            editor_move_right(editor);
-        }
-    }
+    return result == SDCARD_OK || result == SDCARD_OK_TRUNCATED;
 }
 
-/**
- * Dispatch one decoded PS/2 keyboard byte to the existing editor actions.
- */
-static void app_handle_keyboard_code(EditorDocument *editor, unsigned char code)
+static int app_load_typing_game(unsigned int seed, AppState *state)
 {
-    switch (code) {
-    case KEYBOARD_CODE_LEFT:
-        editor_move_left(editor);
-        break;
-    case KEYBOARD_CODE_RIGHT:
-        editor_move_right(editor);
-        break;
-    case KEYBOARD_CODE_UP:
-        editor_move_up(editor);
-        break;
-    case KEYBOARD_CODE_DOWN:
-        editor_move_down(editor);
-        break;
-    default:
-        if (code < 0x80u) {
-            editor_write_ascii(editor, code);
-        }
-        break;
+    TypingGameLoadResult load_result;
+
+    display_show_message("Typing loading", "QUESTION.TXT");
+    app_show_blocking_activity(0, 0);
+    app_sd_status = sdcard_read_question_text_with_activity(
+        app_sd_text,
+        SDCARD_TEXT_BUFFER_SIZE,
+        &app_sd_text_length,
+        app_show_blocking_activity,
+        0);
+    if (!app_sd_read_ok_for_text(app_sd_status)) {
+        printf("Typing SD read failed: %s\n",
+               sdcard_result_text(app_sd_status));
+        app_start_error_message("SD read failed",
+                                APP_STATE_TYPING_READY,
+                                state);
+        return 0;
     }
+
+    load_result = typing_game_load_questions(&app_typing_game,
+                                             app_sd_text,
+                                             app_sd_text_length,
+                                             seed);
+    if (load_result != TYPING_GAME_LOAD_OK) {
+        printf("Typing game needs at least %u questions\n",
+               (unsigned int)TYPING_GAME_ROUNDS);
+        app_start_error_message("Need 10 lines",
+                                APP_STATE_TYPING_READY,
+                                state);
+        return 0;
+    }
+
+    printf("Typing game loaded %u questions from SD\n",
+           (unsigned int)TYPING_GAME_ROUNDS);
+    return 1;
 }
 
-/**
- * Drain the small hardware FIFO so typed characters reach the editor quickly.
- */
-static void app_handle_keyboard(EditorDocument *editor)
+static void app_display_typing_game(void)
 {
-    unsigned char code;
-    unsigned int count;
+    display_show_typing_game(
+        typing_game_current_question(&app_typing_game),
+        typing_game_current_question_len(&app_typing_game),
+        &app_typing_game.input,
+        typing_game_current_round_number(&app_typing_game),
+        typing_game_total_rounds(&app_typing_game),
+        typing_game_elapsed_ms(&app_typing_game));
+}
 
-    count = 0;
-    while (count < KEYBOARD_DRAIN_LIMIT && keyboard_read(&code)) {
-        app_handle_keyboard_code(editor, code);
-        ++count;
+static void app_handle_typing_game_input(const KeyState *keys,
+                                         unsigned char ascii,
+                                         int nav_mode,
+                                         AppState *state)
+{
+    TypingGameAnswerResult answer_result;
+
+    editor_input_handle_keys(&app_typing_game.input,
+                             keys,
+                             ascii,
+                             nav_mode,
+                             0);
+    editor_input_drain_keyboard(&app_typing_game.input, 0);
+
+    answer_result = typing_game_accept_if_answer_correct(&app_typing_game);
+    if (answer_result == TYPING_GAME_ANSWER_COMPLETE) {
+        *state = APP_STATE_TYPING_DONE;
     }
 }
 
@@ -605,6 +637,7 @@ int main(void)
     KeyState keys;
     MenuState start_menu;
     MenuState editor_menu;
+    MenuState typing_menu;
     AppState state;
     unsigned int switches;
     unsigned char ascii;
@@ -621,15 +654,20 @@ int main(void)
     keyboard_init();
     menu_init(&start_menu, app_start_menu_options);
     menu_init(&editor_menu, app_editor_menu_options);
+    menu_init(&typing_menu, app_typing_menu_options);
+    typing_game_init(&app_typing_game);
     eeprom_error = 0;
     editor_loaded = 0;
     state = APP_STATE_MENU;
 
     while (1) {
+        ++app_entropy;
         switches = app_read_switches();
         ascii = (unsigned char)(switches & 0x7Fu);
         nav_mode = (switches & SW_NAV_MASK) != 0;
         editor_set_insert_mode(&editor, (switches & SW_INSERT_MASK) != 0);
+        editor_set_insert_mode(&app_typing_game.input,
+                               (switches & SW_INSERT_MASK) != 0);
 
         key_update(&keys);
         if (state == APP_STATE_MENU) {
@@ -649,6 +687,9 @@ int main(void)
             } else if (menu_selection == APP_MENU_SD_QUESTION) {
                 app_load_sd_question();
                 state = APP_STATE_SD_VIEW;
+            } else if (menu_selection == APP_MENU_TYPING_GAME) {
+                typing_game_init(&app_typing_game);
+                state = APP_STATE_TYPING_READY;
             }
         } else if (state == APP_STATE_INFO_MESSAGE) {
             display_show_info_message(app_modal_message);
@@ -698,6 +739,45 @@ int main(void)
                 }
                 app_display_sd_view();
             }
+        } else if (state == APP_STATE_TYPING_READY) {
+            display_show_action_message("SW0-7 OFF",
+                                        TYPING_READY_ACTION_TEXT);
+            if (key_pressed_edge(&keys, KEY_MASK_0)) {
+                state = APP_STATE_MENU;
+            } else if (key_pressed_edge(&keys, KEY_MASK_1) &&
+                       (switches & SW_TYPING_READY_CLEAR_MASK) == 0u) {
+                if (app_load_typing_game(app_entropy ^ switches, &state)) {
+                    state = APP_STATE_TYPING_GAME;
+                }
+            }
+        } else if (state == APP_STATE_TYPING_GAME) {
+            if (key_pressed_edge(&keys, KEY_MASK_0)) {
+                menu_init(&typing_menu, app_typing_menu_options);
+                state = APP_STATE_TYPING_MENU;
+            } else {
+                app_handle_typing_game_input(&keys, ascii, nav_mode, &state);
+                if (state == APP_STATE_TYPING_GAME) {
+                    typing_game_add_elapsed_ms(&app_typing_game,
+                                               MAIN_LOOP_TICK_MS);
+                    app_display_typing_game();
+                }
+            }
+        } else if (state == APP_STATE_TYPING_MENU) {
+            menu_selection = menu_update(&typing_menu, &keys);
+            if (menu_selection == TYPING_MENU_QUIT) {
+                state = APP_STATE_MENU;
+            } else if (menu_selection == TYPING_MENU_RESTART) {
+                typing_game_restart(&app_typing_game);
+                state = APP_STATE_TYPING_GAME;
+            } else if (menu_selection == TYPING_MENU_CONTINUE) {
+                state = APP_STATE_TYPING_GAME;
+            }
+        } else if (state == APP_STATE_TYPING_DONE) {
+            display_show_typing_done(typing_game_total_rounds(&app_typing_game),
+                                     typing_game_elapsed_ms(&app_typing_game));
+            if (key_pressed_edge(&keys, KEY_MASK_0)) {
+                state = APP_STATE_MENU;
+            }
         } else if (state == APP_STATE_EDITOR_COMMAND) {
             if (key_pressed_edge(&keys, KEY_MASK_2)) {
                 menu_init(&editor_menu, app_editor_menu_options);
@@ -744,8 +824,8 @@ int main(void)
             if (key_pressed_edge(&keys, KEY_MASK_0)) {
                 app_start_vi_command(&state);
             } else {
-                app_handle_keys(&editor, &keys, ascii, nav_mode);
-                app_handle_keyboard(&editor);
+                editor_input_handle_keys(&editor, &keys, ascii, nav_mode, 1);
+                editor_input_drain_keyboard(&editor, 1);
                 display_update_with_markers(&editor,
                                             ascii,
                                             nav_mode,

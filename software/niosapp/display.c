@@ -20,6 +20,7 @@
 #define DISPLAY_VI_COMMAND_TEXT "VI COMMAND"
 
 static int display_lcd_view_start = 0;
+static int display_typing_view_start = 0;
 static unsigned int display_marker_blink_tick = 0;
 static unsigned int display_ledg_state = 0;
 
@@ -97,6 +98,24 @@ static void display_write_decimal_pair(unsigned int high_base,
 
     display_write_hex(high_base, seven_seg_encode_hex((unsigned char)(value / 10u)));
     display_write_hex(low_base, seven_seg_encode_hex((unsigned char)(value % 10u)));
+}
+
+static void display_write_elapsed_time(unsigned int elapsed_ms)
+{
+    unsigned int total_seconds;
+    unsigned char minutes;
+    unsigned char seconds;
+
+    total_seconds = elapsed_ms / 1000u;
+    minutes = (unsigned char)((total_seconds / 60u) % 100u);
+    seconds = (unsigned char)(total_seconds % 60u);
+
+    display_write_decimal_pair(PIO_OUT_HEX3_BASE,
+                               PIO_OUT_HEX2_BASE,
+                               minutes);
+    display_write_decimal_pair(PIO_OUT_HEX1_BASE,
+                               PIO_OUT_HEX0_BASE,
+                               seconds);
 }
 
 static unsigned int display_progress_mask_from_percent(unsigned int percent)
@@ -187,6 +206,41 @@ static void display_write_ledg_state(void)
     IOWR_ALTERA_AVALON_PIO_DATA(PIO_OUT_LEDG_BASE, display_ledg_state);
 }
 
+static unsigned int display_ledg_progress_mask(unsigned char current,
+                                               unsigned char total)
+{
+    unsigned int lit;
+    unsigned int mask;
+    unsigned int i;
+
+    if (total == 0u || current == 0u) {
+        return 0;
+    }
+    if (current >= total) {
+        lit = 8u;
+    } else {
+        lit = (((unsigned int)current * 8u) + total - 1u) /
+            (unsigned int)total;
+    }
+    if (lit > 8u) {
+        lit = 8u;
+    }
+
+    mask = 0;
+    for (i = 0; i < lit; ++i) {
+        mask |= 1u << (7u - i);
+    }
+
+    return mask;
+}
+
+static void display_show_ledg_progress(unsigned char current,
+                                       unsigned char total)
+{
+    display_ledg_state = display_ledg_progress_mask(current, total);
+    display_write_ledg_state();
+}
+
 /**
  * Set or clear one LEDG indicator through the display controller.
  */
@@ -240,6 +294,7 @@ void display_init(void)
     display_write_ledr(0);
     display_clear_ledg();
     display_lcd_view_start = 0;
+    display_typing_view_start = 0;
     display_marker_blink_tick = 0;
     lcd_init();
 }
@@ -788,6 +843,16 @@ void display_show_error_message(const char *message)
 }
 
 /**
+ * Show a custom two-action message with the 2 Hz message LEDR effect.
+ */
+void display_show_action_message(const char *message, const char *action_text)
+{
+    display_show_key_message(message,
+                             action_text,
+                             DISPLAY_LEDR_FLAG_CONFIRM_BLINK);
+}
+
+/**
  * Show two newline-delimited text rows starting at first_line.
  */
 void display_show_text_page(const char *text,
@@ -809,6 +874,137 @@ void display_show_text_page(const char *text,
     pos = display_build_text_row(text, length, pos, row);
     lcd_write_line(0, row, LCD_WIDTH);
     (void)display_build_text_row(text, length, pos, row);
+    lcd_write_line(1, row, LCD_WIDTH);
+    lcd_hide_cursor();
+}
+
+static int display_typing_max_view_start(unsigned char question_len,
+                                         const EditorDocument *input)
+{
+    int max_len;
+
+    max_len = question_len;
+    if (input->line_len[0] > max_len) {
+        max_len = input->line_len[0];
+    }
+    if (max_len < LCD_WIDTH) {
+        return 0;
+    }
+
+    return max_len - (LCD_WIDTH - 1);
+}
+
+static void display_clamp_typing_view_start(unsigned char question_len,
+                                            const EditorDocument *input)
+{
+    int max_start;
+
+    max_start = display_typing_max_view_start(question_len, input);
+    if (display_typing_view_start < 0) {
+        display_typing_view_start = 0;
+    }
+    if (display_typing_view_start > max_start) {
+        display_typing_view_start = max_start;
+    }
+}
+
+static int display_typing_view(const EditorDocument *input,
+                               unsigned char question_len)
+{
+    int cursor;
+
+    cursor = input->cursor_col;
+    display_clamp_typing_view_start(question_len, input);
+
+    if (cursor < display_typing_view_start + LCD_CURSOR_LEFT_CONTEXT) {
+        display_typing_view_start = cursor - LCD_CURSOR_LEFT_CONTEXT;
+    } else if (cursor > display_typing_view_start + LCD_CURSOR_MAX_COL) {
+        display_typing_view_start = cursor - LCD_CURSOR_MAX_COL;
+    }
+
+    display_clamp_typing_view_start(question_len, input);
+    return display_typing_view_start;
+}
+
+static void display_build_raw_view(const char *text,
+                                   unsigned char length,
+                                   int view_start,
+                                   char *view)
+{
+    int i;
+    int col;
+    unsigned char ch;
+
+    for (i = 0; i < LCD_WIDTH; ++i) {
+        col = view_start + i;
+        if (col >= 0 && col < length) {
+            ch = (unsigned char)text[col];
+            if (ch < 0x20u || ch > 0x7Eu) {
+                ch = ' ';
+            }
+            view[i] = (char)ch;
+        } else {
+            view[i] = ' ';
+        }
+    }
+}
+
+static void display_write_typing_status(unsigned char current_round,
+                                        unsigned char total_rounds,
+                                        unsigned int elapsed_ms)
+{
+    display_write_decimal_pair(PIO_OUT_HEX7_BASE,
+                               PIO_OUT_HEX6_BASE,
+                               current_round);
+    display_write_decimal_pair(PIO_OUT_HEX5_BASE,
+                               PIO_OUT_HEX4_BASE,
+                               total_rounds);
+    display_write_elapsed_time(elapsed_ms);
+}
+
+/**
+ * Show the typing game prompt/input view and game status outputs.
+ */
+void display_show_typing_game(const char *question,
+                              unsigned char question_len,
+                              const EditorDocument *input,
+                              unsigned char current_round,
+                              unsigned char total_rounds,
+                              unsigned int elapsed_ms)
+{
+    char row[LCD_WIDTH];
+    int view_start;
+    int cursor_col;
+
+    display_write_ledr(0);
+    display_show_ledg_progress(current_round, total_rounds);
+    display_write_typing_status(current_round, total_rounds, elapsed_ms);
+
+    view_start = display_typing_view(input, question_len);
+    display_build_raw_view(question, question_len, view_start, row);
+    lcd_write_line(0, row, LCD_WIDTH);
+    display_build_line_view(input, 0, view_start, row);
+    lcd_write_line(1, row, LCD_WIDTH);
+
+    cursor_col = (int)input->cursor_col - view_start;
+    lcd_set_cursor(1, cursor_col);
+    lcd_set_cursor_mode(input->insert_mode);
+}
+
+/**
+ * Show the typing game completion screen while keeping final score outputs.
+ */
+void display_show_typing_done(unsigned char total_rounds,
+                              unsigned int elapsed_ms)
+{
+    char row[LCD_WIDTH];
+
+    display_select_ledr_effect(DISPLAY_LEDR_FLAG_CONFIRM_BLINK);
+    display_show_ledg_progress(total_rounds, total_rounds);
+    display_write_typing_status(total_rounds, total_rounds, elapsed_ms);
+    display_build_center_text(DISPLAY_INFO_OK_TEXT, row);
+
+    lcd_write_line(0, "Game complete", 13);
     lcd_write_line(1, row, LCD_WIDTH);
     lcd_hide_cursor();
 }
