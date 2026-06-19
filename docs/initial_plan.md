@@ -124,14 +124,15 @@ int dirty_flag = 0;
 ```text
 1. 初始化系統
 2. 初始化 LCD / HEX / LED
-3. 從 EEPROM 讀取文件資料
-4. 載入 Document Buffer
-5. 進入主迴圈
-6. 讀取 SW / KEY
-7. 判斷使用者操作
-8. 更新文件資料
-9. 若按下 KEY0 且文件有修改，寫入 EEPROM
-10. 更新 LCD / HEX / LED 顯示
+3. 顯示共用開機選單，`KEY3` / `KEY2` 左右切換，`KEY0` 確認
+4. 若選擇 `EEPROM EDITOR`，從 EEPROM 讀取文件資料並載入 Document Buffer
+5. 若選擇 `SD QUESTION`，讀取 SD 卡根目錄 `QUESTION.TXT` 做只讀測試
+6. 進入主迴圈
+7. 讀取 SW / KEY
+8. 判斷使用者操作
+9. 更新文件資料
+10. 若按下 KEY0 且文件有修改，寫入 EEPROM
+11. 更新 LCD / HEX / LED 顯示
 ```
 
 ---
@@ -141,11 +142,27 @@ int dirty_flag = 0;
 | 模組                          | 功能               |
 | --------------------------- | ---------------- |
 | `main.c`                    | 主程式流程與狀態控制       |
+| `menu.c / menu.h`           | 共用 LCD 選單狀態機        |
 | `editor.c / editor.h`       | 文字編輯邏輯           |
 | `display.c / display.h`     | LCD、HEX、LED 顯示更新 |
 | `key.c / key.h`             | KEY 去彈跳與邊緣偵測     |
 | `eeprom.c / eeprom.h`       | EEPROM 讀寫        |
 | `seven_seg.c / seven_seg.h` | 七段顯示器編碼          |
+
+---
+
+### 6.3 共用選單 UI
+
+多選項 LCD 畫面使用共用 `menu.c / menu.h` 狀態機。外部流程只提供 null-terminated option list，例如 `EEPROM EDITOR`、`SD QUESTION`；`menu_update()` 統一處理 `KEY3` 向左、`KEY2` 向右、`KEY0` 確認，並回傳 zero-based option index。
+
+LCD 顯示規格：
+
+```text
+第一列：目前選項名稱
+第二列第二格：左側仍有選項時顯示 <
+第二列倒數第二格：右側仍有選項時顯示 >
+第二列中央：十進位 目前/總數，例如 1/2，支援到 99/99
+```
 
 ---
 

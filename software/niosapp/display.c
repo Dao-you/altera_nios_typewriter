@@ -13,10 +13,27 @@
 #define LCD_CURSOR_BLINK_MATCH_TICKS 34u
 #define LEDR_PROGRESS_LED_COUNT 18u
 #define LEDR_ACTIVITY_LED_COUNT 17u
+#define DISPLAY_MENU_LEFT_COL 1
+#define DISPLAY_MENU_RIGHT_COL (LCD_WIDTH - 2)
 
 static int display_lcd_view_start = 0;
 static unsigned int display_marker_blink_tick = 0;
 static unsigned int display_ledg_state = 0;
+
+static int display_text_length(const char *text, int max_length)
+{
+    int length;
+
+    length = 0;
+    if (text == 0) {
+        return 0;
+    }
+    while (length < max_length && text[length] != '\0') {
+        ++length;
+    }
+
+    return length;
+}
 
 /**
  * Write one encoded digit to a HEX PIO.
@@ -430,15 +447,80 @@ void display_update(const EditorDocument *editor,
     lcd_set_cursor_mode(editor->insert_mode);
 }
 
-/**
- * Show the startup mode selection menu.
- */
-void display_show_menu(void)
+static unsigned char display_write_decimal(unsigned char value, char *buffer)
 {
+    if (value > 99u) {
+        value = 99u;
+    }
+    if (value >= 10u) {
+        buffer[0] = (char)('0' + (value / 10u));
+        buffer[1] = (char)('0' + (value % 10u));
+        return 2u;
+    }
+
+    buffer[0] = (char)('0' + value);
+    return 1u;
+}
+
+static void display_build_menu_counter(unsigned char selected_index,
+                                       unsigned char option_count,
+                                       char *row)
+{
+    char counter[5];
+    unsigned char display_index;
+    unsigned char length;
+    unsigned char start;
+    unsigned char i;
+
+    display_index = 0;
+    if (option_count > 0u) {
+        display_index = (unsigned char)(selected_index + 1u);
+    }
+    if (display_index > 99u) {
+        display_index = 99u;
+    }
+    if (option_count > 99u) {
+        option_count = 99u;
+    }
+
+    length = display_write_decimal(display_index, counter);
+    counter[length] = '/';
+    ++length;
+    length = (unsigned char)(length +
+        display_write_decimal(option_count, &counter[length]));
+
+    start = (unsigned char)((LCD_WIDTH - length) / 2u);
+    for (i = 0u; i < length; ++i) {
+        row[start + i] = counter[i];
+    }
+}
+
+/**
+ * Show one option from a horizontal menu.
+ */
+void display_show_menu_item(const char *option_name,
+                            unsigned char selected_index,
+                            unsigned char option_count)
+{
+    char row[LCD_WIDTH];
+    unsigned char i;
+
+    for (i = 0u; i < LCD_WIDTH; ++i) {
+        row[i] = ' ';
+    }
+
+    if (option_count > 0u && selected_index > 0u) {
+        row[DISPLAY_MENU_LEFT_COL] = '<';
+    }
+    if (option_count > 0u && selected_index + 1u < option_count) {
+        row[DISPLAY_MENU_RIGHT_COL] = '>';
+    }
+    display_build_menu_counter(selected_index, option_count, row);
+
     IOWR_ALTERA_AVALON_PIO_DATA(PIO_OUT_LEDR_BASE, 0);
     display_clear_ledg();
-    lcd_write_line(0, "KEY0 EEPROM", 11);
-    lcd_write_line(1, "KEY1 SD QUESTION", 16);
+    lcd_write_line(0, option_name, display_text_length(option_name, LCD_WIDTH));
+    lcd_write_line(1, row, LCD_WIDTH);
     lcd_hide_cursor();
 }
 
@@ -447,8 +529,8 @@ void display_show_menu(void)
  */
 void display_show_message(const char *line0, const char *line1)
 {
-    lcd_write_line(0, line0, LCD_WIDTH);
-    lcd_write_line(1, line1, LCD_WIDTH);
+    lcd_write_line(0, line0, display_text_length(line0, LCD_WIDTH));
+    lcd_write_line(1, line1, display_text_length(line1, LCD_WIDTH));
     lcd_hide_cursor();
 }
 

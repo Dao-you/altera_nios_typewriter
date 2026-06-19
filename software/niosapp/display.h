@@ -25,9 +25,11 @@ void display_update(const EditorDocument *editor,
                     int eeprom_error);
 
 /**
- * Show the startup mode selection menu.
+ * Show one option from a horizontal menu.
  */
-void display_show_menu(void);
+void display_show_menu_item(const char *option_name,
+                            unsigned char selected_index,
+                            unsigned char option_count);
 
 /**
  * Show a fixed two-line status message.

@@ -8,7 +8,7 @@
 
 主要功能規劃：
 
-- 開機後 LCD 先顯示選單：`KEY0` 進入原本 EEPROM / 文字編輯器流程，`KEY1` 測試讀取 SD 卡根目錄的 `QUESTION.TXT`。
+- 開機後 LCD 先顯示共用選單：`KEY3` / `KEY2` 在選項間左右移動，`KEY0` 確認。目前選項為 `EEPROM EDITOR` 與 `SD QUESTION`。
 - `SW[6:0]` 輸入 7-bit ASCII。
 - 進入文字編輯器後，`KEY1` 寫入目前 ASCII；若 ASCII 是 `0x08` 執行 BS 刪除左側字元，行頭時刪除上一行 LF 並合併行，`0x0A` 執行 LF 換行，`0x7F` 執行 DEL 刪除游標所在字元。
 - 進入文字編輯器後，`KEY0` 手動將目前文件存入 EEPROM。
@@ -22,7 +22,7 @@
 - LEDG 顯示模式、目前 LCD 視窗右側是否還有未顯示內容、unsaved 狀態。
 - 文件先存在 C 程式的 Document Buffer，後續寫入 DE2-115 板上 24LC32 類 EEPROM。
 - PS/2 鍵盤由 Verilog 接收 scan code 並轉成 ASCII / editor control byte，透過 Qsys PIO FIFO 介面交給 Nios II C 程式，原本 SW/KEY 測試輸入仍保留。
-- SD 卡先以 Qsys `altera_avalon_spi` SPI mode 做只讀測試；`KEY1` 會嘗試讀 FAT16/FAT32 根目錄短檔名 `QUESTION.TXT` 並在 LCD 顯示內容，不實作 SD 寫入。
+- SD 卡先以 Qsys `altera_avalon_spi` SPI mode 做只讀測試；開機選單確認 `SD QUESTION` 會嘗試讀 FAT16/FAT32 根目錄短檔名 `QUESTION.TXT` 並在 LCD 顯示內容，不實作 SD 寫入。
 
 ## 目前狀態
 
@@ -44,9 +44,10 @@
 
 目前 `software/niosapp/` 已實作：
 
-- `main.c`：開機選單與主迴圈狀態切換；`KEY0` 進入 EEPROM/editor，editor 內處理 `KEY0` 存檔、`KEY1` 寫入、`KEY2/KEY3` 移動；`KEY1` 可進入 SD `QUESTION.TXT` 讀取測試畫面。
+- `main.c`：開機選單與主迴圈狀態切換；開機時提供選項列表給 `menu.c`，確認後進入 EEPROM/editor 或 SD `QUESTION.TXT` 讀取測試畫面；editor 內處理 `KEY0` 存檔、`KEY1` 寫入、`KEY2/KEY3` 移動。
 - `editor.c/.h`：固定大小 `EditorDocument`、Insert / Overwrite、BS、LF、DEL、左右上下移動、dirty flag、序列化 / 反序列化。
-- `display.c/.h`：LEDR、LEDG、HEX、LCD 更新；HEX7~HEX2 使用十進位，HEX1~HEX0 顯示 ASCII 十六進位；LCD 以 16 欄 viewport 顯示目前行 / 下一行；最後一行的 END 標記會閃爍；EEPROM 讀寫期間顯示 LEDR 跑馬燈。
+- `menu.c/.h`：共用 LCD 選單狀態機；呼叫端只提供 null-terminated 選項列表，`KEY3` / `KEY2` 左右移動，`KEY0` 確認並回傳 option index。
+- `display.c/.h`：LEDR、LEDG、HEX、LCD 更新；HEX7~HEX2 使用十進位，HEX1~HEX0 顯示 ASCII 十六進位；LCD 以 16 欄 viewport 顯示目前行 / 下一行；最後一行的 END 標記會閃爍；共用選單畫面第一列顯示選項名稱，第二列用 `<` / `>` 與十進位 `目前/總數` 顯示位置；EEPROM 讀寫期間顯示 LEDR 跑馬燈。
 - `lcd.c/.h`：LCD1602 8-bit PIO bit-bang、兩行文字更新、LCD 內建 cursor 模式切換。
 - `key.c/.h`：active-low KEY 讀取、簡單 debounce、pressed-edge 偵測。
 - `keyboard.c/.h`：讀取 Verilog PS/2 keyboard FIFO PIO，將 decoded byte 交回現有 editor action。
@@ -150,6 +151,7 @@
 優先在 `software/niosapp/` 內發展應用程式。若程式變大，建議拆成：
 
 - `main.c`：初始化與主迴圈
+- `menu.c` / `menu.h`：共用選單狀態機
 - `editor.c` / `editor.h`：Document Buffer、insert/overwrite、BS、LF 換行、DEL、游標移動
 - `display.c` / `display.h`：LED、HEX、LCD 更新
 - `key.c` / `key.h`：active-low KEY 反相、去彈跳、edge detection
@@ -159,6 +161,8 @@
 - `seven_seg.c` / `seven_seg.h`：active-low 七段顯示編碼
 
 為了程式碼可維護性，UI 相關邏輯盡量寫成共用模組，不要在 `main.c` 或各功能模組裡散落直接控制 LEDR、LEDG、HEX、LCD 的程式。新增畫面、狀態燈、跑馬燈、進度條、閃爍訊息或 LCD 狀態文字時，優先擴充 `display.c/.h` 的共用函數，並同步更新根目錄 `UI.md`。`lcd.c/.h` 和 `seven_seg.c/.h` 是 display 層使用的底層 helper；除非正在修改驅動本身，一般功能流程不應直接操作它們或直接寫 display PIO。
+
+新增多選項 LCD menu 時，優先使用 `menu.c/.h`：呼叫端只傳入 null-terminated option list，`menu_update()` 會處理 `KEY3` 向左、`KEY2` 向右、`KEY0` 確認，LCD 版面由 `display_show_menu_item()` 統一輸出。
 
 目前核心資料結構使用 `editor.h` 的固定大小 `EditorDocument`：
 
@@ -339,9 +343,10 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - Quartus compile 成功，`output_files/EP4.sof` 更新。
 - Eclipse app build 成功，`software/niosapp/niosapp.elf` 更新。
 - JTAG UART 可執行基本 `printf`。
-- 開機 LCD 顯示選單：`KEY0 EEPROM` / `KEY1 SD QUESTION`。
-- 開機選單按 `KEY0` 進入原本 EEPROM/editor 流程，若 EEPROM 有有效文件會載入，否則空白文件開始。
-- 開機選單按 `KEY1` 會讀 SD 卡 FAT16/FAT32 根目錄短檔名 `QUESTION.TXT`；成功後 LCD 以兩列顯示內容，`KEY2/KEY3` 捲動，`KEY1` 可重新讀檔，`KEY0` 可切回 EEPROM/editor。
+- 開機 LCD 顯示共用選單：第一列為目前選項名稱，第二列中央為十進位 `1/2` 類 counter；若左側仍有選項，第二列第二格顯示 `<`；若右側仍有選項，第二列倒數第二格顯示 `>`。
+- 開機選單按 `KEY3` / `KEY2` 可左右切換 `EEPROM EDITOR` 與 `SD QUESTION`，按 `KEY0` 確認。
+- 開機選單確認 `EEPROM EDITOR` 進入原本 EEPROM/editor 流程，若 EEPROM 有有效文件會載入，否則空白文件開始。
+- 開機選單確認 `SD QUESTION` 會讀 SD 卡 FAT16/FAT32 根目錄短檔名 `QUESTION.TXT`；成功後 LCD 以兩列顯示內容，`KEY2/KEY3` 捲動，`KEY1` 可重新讀檔，`KEY0` 可切回 EEPROM/editor。
 - `SW[6:0]` 可讀出並在 HEX1~HEX0 顯示 ASCII hex。
 - `SW[6:0] = 0x08` 時 KEY1 執行 BS，且游標在行頭時會刪除上一行 LF 並合併行；`0x0A` 時 KEY1 執行 LF，`0x7F` 時 KEY1 執行 DEL。
 - `SW[15]` 為 reset：`0` reset，`1` run。
@@ -369,4 +374,4 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - `UART_RXD` / `UART_TXD` 目前不是 Nios UART；除錯先用 JTAG UART。
 - `SW[15]` 是 reset；`SW[16]` 是 Insert / Overwrite；文字編輯器也使用 `SW[17]` 和 `SW[6:0]`。
 - Qsys 新增或重新排序 PIO 後一定要更新 BSP；只重新 Generate HDL 不會更新 `software/niosapp_bsp/system.h`。
-- 若 `KEY1` SD 測試只顯示 `Update BSP first`，代表 C app 是用尚未包含 `SPI_SDCARD_BASE` 的舊 BSP 編出來；先更新 `software/niosapp_bsp` 再 build app。
+- 若 SD 測試只顯示 `Update BSP first`，代表 C app 是用尚未包含 `SPI_SDCARD_BASE` 的舊 BSP 編出來；先更新 `software/niosapp_bsp` 再 build app。

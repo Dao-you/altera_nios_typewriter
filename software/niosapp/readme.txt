@@ -6,9 +6,10 @@ Nios II C code and existing Avalon PIO peripherals.
 
 INPUTS:
 - Startup menu:
-  - KEY0: enter the EEPROM-backed text editor.
-  - KEY1: read QUESTION.TXT from the SD card root directory for a read-only
-    bring-up test.
+  - KEY3: move to the previous option.
+  - KEY2: move to the next option.
+  - KEY0: confirm the selected option.
+  - Options: EEPROM EDITOR, SD QUESTION.
 - SW[6:0]: 7-bit ASCII input.
 - SW15: active-low Nios II reset, 0 = reset and 1 = run.
 - SW16: edit mode, 0 = overwrite and 1 = insert.
@@ -26,8 +27,9 @@ INPUTS:
   - KEY0: enter the EEPROM-backed text editor.
 
 OUTPUTS:
-- Startup LCD: first row shows "KEY0 EEPROM"; second row shows
-  "KEY1 SD QUESTION".
+- Startup LCD: first row shows the selected option name. The second row uses
+  column 1 for "<" when an option exists to the left, column 14 for ">" when
+  an option exists to the right, and a centered decimal counter such as "1/2".
 - LCD: current editor line and next line through a 16-column viewport. The
   viewport scrolls on long lines after the cursor crosses the third column or
   the third column from the right. The second LCD row blinks "------END-------"
@@ -51,6 +53,8 @@ OUTPUTS:
 
 SOURCE FILES:
 - main.c: application loop and event dispatch.
+- menu.c/.h: shared LCD menu state machine. Callers provide an option list;
+  KEY3/KEY2 move left/right and KEY0 returns the selected option index.
 - editor.c/.h: document buffer and editing operations.
 - key.c/.h: active-low key debounce and edge detection.
 - display.c/.h, lcd.c/.h, seven_seg.c/.h: board display output.

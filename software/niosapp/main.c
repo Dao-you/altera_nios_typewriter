@@ -7,6 +7,7 @@
 #include "eeprom.h"
 #include "key.h"
 #include "keyboard.h"
+#include "menu.h"
 #include "sdcard.h"
 
 #define MAIN_LOOP_DELAY_US 10000
@@ -20,11 +21,21 @@ typedef enum {
     APP_STATE_SD_VIEW
 } AppState;
 
+typedef enum {
+    APP_MENU_EDITOR = 0,
+    APP_MENU_SD_QUESTION = 1
+} AppMenuChoice;
+
 static char app_sd_text[SDCARD_TEXT_BUFFER_SIZE];
 static unsigned int app_sd_text_length = 0;
 static unsigned int app_sd_first_line = 0;
 static unsigned int app_sd_line_count = 1;
 static SdCardResult app_sd_status = SDCARD_NO_SPI;
+static const char *const app_start_menu_options[] = {
+    "EEPROM EDITOR",
+    "SD QUESTION",
+    0
+};
 
 /**
  * Read SW[17:0] from the Avalon PIO.
@@ -215,9 +226,11 @@ int main(void)
 {
     EditorDocument editor;
     KeyState keys;
+    MenuState start_menu;
     AppState state;
     unsigned int switches;
     unsigned char ascii;
+    int menu_selection;
     int nav_mode;
     int eeprom_error;
     int editor_loaded;
@@ -228,6 +241,7 @@ int main(void)
     display_init();
     key_init(&keys);
     keyboard_init();
+    menu_init(&start_menu, app_start_menu_options);
     eeprom_error = 0;
     editor_loaded = 0;
     state = APP_STATE_MENU;
@@ -240,17 +254,16 @@ int main(void)
 
         key_update(&keys);
         if (state == APP_STATE_MENU) {
-            if (key_pressed_edge(&keys, KEY_MASK_0)) {
+            menu_selection = menu_update(&start_menu, &keys);
+            if (menu_selection == APP_MENU_EDITOR) {
                 if (!editor_loaded) {
                     eeprom_error = app_load_eeprom_document(&editor);
                     editor_loaded = 1;
                 }
                 state = APP_STATE_EDITOR;
-            } else if (key_pressed_edge(&keys, KEY_MASK_1)) {
+            } else if (menu_selection == APP_MENU_SD_QUESTION) {
                 app_load_sd_question();
                 state = APP_STATE_SD_VIEW;
-            } else {
-                display_show_menu();
             }
         } else if (state == APP_STATE_SD_VIEW) {
             if (key_pressed_edge(&keys, KEY_MASK_0)) {
