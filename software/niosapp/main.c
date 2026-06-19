@@ -18,6 +18,7 @@
 typedef enum {
     APP_STATE_MENU = 0,
     APP_STATE_EDITOR,
+    APP_STATE_EDITOR_MENU,
     APP_STATE_SD_VIEW
 } AppState;
 
@@ -25,6 +26,14 @@ typedef enum {
     APP_MENU_EDITOR = 0,
     APP_MENU_SD_QUESTION = 1
 } AppMenuChoice;
+
+typedef enum {
+    EDITOR_MENU_SAVE_TO_ROM = 0,
+    EDITOR_MENU_CLEAR_THIS_LINE,
+    EDITOR_MENU_CLEAR_ALL,
+    EDITOR_MENU_MOVE_TO_HEAD,
+    EDITOR_MENU_MOVE_TO_END
+} EditorMenuChoice;
 
 static char app_sd_text[SDCARD_TEXT_BUFFER_SIZE];
 static unsigned int app_sd_text_length = 0;
@@ -34,6 +43,14 @@ static SdCardResult app_sd_status = SDCARD_NO_SPI;
 static const char *const app_start_menu_options[] = {
     "EEPROM EDITOR",
     "SD QUESTION",
+    0
+};
+static const char *const app_editor_menu_options[] = {
+    "Save to ROM",
+    "Clear this line",
+    "Clear All",
+    "Move to head",
+    "Move to end",
     0
 };
 
@@ -96,6 +113,31 @@ static int app_load_eeprom_document(EditorDocument *editor)
     return load_status == EEPROM_LOAD_ERROR;
 }
 
+static void app_handle_editor_menu_choice(EditorDocument *editor,
+                                          int selection,
+                                          int *eeprom_error)
+{
+    switch (selection) {
+    case EDITOR_MENU_SAVE_TO_ROM:
+        *eeprom_error = app_handle_save(editor);
+        break;
+    case EDITOR_MENU_CLEAR_THIS_LINE:
+        editor_clear_current_line(editor);
+        break;
+    case EDITOR_MENU_CLEAR_ALL:
+        editor_clear_all(editor);
+        break;
+    case EDITOR_MENU_MOVE_TO_HEAD:
+        editor_move_to_head(editor);
+        break;
+    case EDITOR_MENU_MOVE_TO_END:
+        editor_move_to_end(editor);
+        break;
+    default:
+        break;
+    }
+}
+
 static unsigned int app_count_text_lines(const char *text, unsigned int length)
 {
     unsigned int i;
@@ -153,12 +195,8 @@ static void app_load_sd_question(void)
 static void app_handle_keys(EditorDocument *editor,
                             const KeyState *keys,
                             unsigned char ascii,
-                            int nav_mode,
-                            int *eeprom_error)
+                            int nav_mode)
 {
-    if (key_pressed_edge(keys, KEY_MASK_0)) {
-        *eeprom_error = app_handle_save(editor);
-    }
     if (key_pressed_edge(keys, KEY_MASK_1)) {
         editor_write_ascii(editor, ascii);
     }
@@ -227,6 +265,7 @@ int main(void)
     EditorDocument editor;
     KeyState keys;
     MenuState start_menu;
+    MenuState editor_menu;
     AppState state;
     unsigned int switches;
     unsigned char ascii;
@@ -242,6 +281,7 @@ int main(void)
     key_init(&keys);
     keyboard_init();
     menu_init(&start_menu, app_start_menu_options);
+    menu_init(&editor_menu, app_editor_menu_options);
     eeprom_error = 0;
     editor_loaded = 0;
     state = APP_STATE_MENU;
@@ -286,10 +326,23 @@ int main(void)
                 }
                 app_display_sd_view();
             }
+        } else if (state == APP_STATE_EDITOR_MENU) {
+            menu_selection = menu_update(&editor_menu, &keys);
+            if (menu_selection != MENU_NO_SELECTION) {
+                app_handle_editor_menu_choice(&editor,
+                                              menu_selection,
+                                              &eeprom_error);
+                state = APP_STATE_EDITOR;
+            }
         } else {
-            app_handle_keys(&editor, &keys, ascii, nav_mode, &eeprom_error);
-            app_handle_keyboard(&editor);
-            display_update(&editor, ascii, nav_mode, eeprom_error);
+            if (key_pressed_edge(&keys, KEY_MASK_0)) {
+                menu_init(&editor_menu, app_editor_menu_options);
+                state = APP_STATE_EDITOR_MENU;
+            } else {
+                app_handle_keys(&editor, &keys, ascii, nav_mode);
+                app_handle_keyboard(&editor);
+                display_update(&editor, ascii, nav_mode, eeprom_error);
+            }
         }
 
         alt_busy_sleep(MAIN_LOOP_DELAY_US);

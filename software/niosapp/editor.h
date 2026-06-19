@@ -58,6 +58,30 @@ int editor_move_up(EditorDocument *editor);
 int editor_move_down(EditorDocument *editor);
 
 /**
+ * Clear the current line contents and move the cursor to column 0.
+ * Returns 1 when the document changes.
+ */
+int editor_clear_current_line(EditorDocument *editor);
+
+/**
+ * Clear the whole document back to one empty line.
+ * Returns 1 when the document changes.
+ */
+int editor_clear_all(EditorDocument *editor);
+
+/**
+ * Move the cursor to the start of the document.
+ * Returns 1 when the cursor moves.
+ */
+int editor_move_to_head(EditorDocument *editor);
+
+/**
+ * Move the cursor to the end of the document.
+ * Returns 1 when the cursor moves.
+ */
+int editor_move_to_end(EditorDocument *editor);
+
+/**
  * Clear the dirty flag after a successful EEPROM save.
  */
 void editor_mark_saved(EditorDocument *editor);

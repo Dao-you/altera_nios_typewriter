@@ -15,21 +15,27 @@ INPUTS:
 - SW16: edit mode, 0 = overwrite and 1 = insert.
 - SW17: navigation mode, 0 = left/right and 1 = up/down.
 - Editor mode:
-  - KEY0: save the current document to EEPROM.
+  - KEY0: open the editor menu.
   - KEY1: write the current ASCII byte; 0x08 backspaces, including joining
     with the previous line at column 0, 0x0A creates a new line, and 0x7F
     deletes the character under the cursor.
   - KEY3: move left or up.
   - KEY2: move right or down.
+- Editor menu:
+  - KEY3: move to the previous option.
+  - KEY2: move to the next option.
+  - KEY0: confirm the selected option and return to editor mode.
+  - Options: Save to ROM, Clear this line, Clear All, Move to head, Move to end.
 - SD view mode:
   - KEY1: retry reading QUESTION.TXT.
   - KEY2/KEY3: scroll down/up by one text line.
   - KEY0: enter the EEPROM-backed text editor.
 
 OUTPUTS:
-- Startup LCD: first row shows the selected option name. The second row uses
+- Menu LCD: first row shows the selected option name. The second row uses
   column 1 for "<" when an option exists to the left, column 14 for ">" when
   an option exists to the right, and a centered decimal counter such as "1/2".
+  Startup and editor menus share this layout.
 - LCD: current editor line and next line through a 16-column viewport. The
   viewport scrolls on long lines after the cursor crosses the third column or
   the third column from the right. The second LCD row blinks "------END-------"

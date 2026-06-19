@@ -6,7 +6,7 @@
 
 本專題預計在 ALTERA DE2-115 FPGA 平台上，使用 **Nios II + C 語言** 實作一個簡易文字編輯器。系統透過板上的 `SW` 輸入 ASCII 字元與模式，使用 `KEY` 控制寫入、換行、游標移動與存檔，並透過 `LCD` 顯示目前編輯行內容。`HEX`、`LEDR`、`LEDG` 則用於顯示目前行號、字元位置、總行數與系統狀態。
 
-文字資料會先存放在 C 程式中的 `Document Buffer`。編輯後設定未儲存狀態，使用者按下 `KEY0` 時再將整份文件寫入 EEPROM，使資料在 reset 或斷電後仍可讀回。
+文字資料會先存放在 C 程式中的 `Document Buffer`。編輯後設定未儲存狀態，使用者按下 `KEY0` 進入 editor 選單，選擇 `Save to ROM` 時再將整份文件寫入 EEPROM，使資料在 reset 或斷電後仍可讀回。
 
 ---
 
@@ -39,7 +39,7 @@ EEPROM 儲存
 | `SW15`       | Nios II reset          | `0`：reset，`1`：run               |
 | `SW16`       | Insert / Overwrite 切換 | `0`：Overwrite，`1`：Insert        |
 | `SW17`       | 移動模式切換                | `0`：左右移動，`1`：上下移動             |
-| `KEY0`       | Save                  | 將目前文件手動寫入 EEPROM              |
+| `KEY0`       | Editor menu           | 在 editor 主畫面開啟共用選單；選擇 `Save to ROM` 才寫入 EEPROM |
 | `KEY1`       | Write                 | 寫入目前 ASCII；`0x08` BS，`0x0A` LF，`0x7F` DEL |
 | `KEY3`       | 往前 / 往上               | 依照 `SW17` 決定游標左移或上一行          |
 | `KEY2`       | 往後 / 往下               | 依照 `SW17` 決定游標右移或下一行          |
@@ -131,7 +131,7 @@ int dirty_flag = 0;
 7. 讀取 SW / KEY
 8. 判斷使用者操作
 9. 更新文件資料
-10. 若按下 KEY0 且文件有修改，寫入 EEPROM
+10. 若按下 KEY0，顯示 editor 選單；確認 `Save to ROM` 且文件有修改時寫入 EEPROM
 11. 更新 LCD / HEX / LED 顯示
 ```
 
@@ -153,7 +153,7 @@ int dirty_flag = 0;
 
 ### 6.3 共用選單 UI
 
-多選項 LCD 畫面使用共用 `menu.c / menu.h` 狀態機。外部流程只提供 null-terminated option list，例如 `EEPROM EDITOR`、`SD QUESTION`；`menu_update()` 統一處理 `KEY3` 向左、`KEY2` 向右、`KEY0` 確認，並回傳 zero-based option index。
+多選項 LCD 畫面使用共用 `menu.c / menu.h` 狀態機。外部流程只提供 null-terminated option list，例如開機選單的 `EEPROM EDITOR`、`SD QUESTION`，或 editor 選單的 `Save to ROM`、`Clear this line`、`Clear All`、`Move to head`、`Move to end`；`menu_update()` 統一處理 `KEY3` 向左、`KEY2` 向右、`KEY0` 確認，並回傳 zero-based option index。
 
 LCD 顯示規格：
 
@@ -289,10 +289,10 @@ EEPROM 用來保存文件內容，使 reset 或斷電後仍可恢復資料。
 
 ```text
 內容修改後只設定 dirty_flag
-按下 KEY0 時才寫入 EEPROM
+按下 KEY0 開啟 editor 選單，確認 Save to ROM 時才寫入 EEPROM
 EEPROM 讀取或寫入期間以 LEDR17..LEDR1 顯示單燈跑馬燈；這只是 blocking activity 視覺效果，不代表讀寫進度
 存檔成功後清除 dirty_flag
-若 dirty_flag = 0，KEY0 可略過實際 EEPROM 寫入
+若 dirty_flag = 0，Save to ROM 可略過實際 EEPROM 寫入
 ```
 
 ---
@@ -395,7 +395,7 @@ LCD cursor 會放在 `document[current_line][cursor_col]` 的位置。Insert 模
 2. 完成 EEPROM 讀取功能
 3. 開機時自動載入文件
 4. 編輯後設定 dirty_flag
-5. KEY0 手動儲存文件
+5. KEY0 開啟 editor 選單，確認 Save to ROM 時手動儲存文件
 6. EEPROM 讀寫 blocking 期間顯示 LEDR17..LEDR1 單燈跑馬燈視覺效果
 7. 存檔成功後清除 dirty_flag
 8. reset 後確認資料可恢復
@@ -405,6 +405,6 @@ LCD cursor 會放在 `document[current_line][cursor_col]` 的位置。Insert 模
 
 ## 11. 預期成果
 
-完成後，系統可在 DE2-115 上獨立運作，使用者能透過開關輸入 ASCII 字元並切換輸入模式，利用按鍵控制游標、換行與手動存檔，並在 LCD 上看到目前編輯內容。七段顯示器與 LED 可即時顯示目前文件狀態，EEPROM 則負責保存文件資料，使系統具備基本文字編輯與非揮發性儲存能力。
+完成後，系統可在 DE2-115 上獨立運作，使用者能透過開關輸入 ASCII 字元並切換輸入模式，利用按鍵控制游標、換行，並透過 editor 選單手動儲存文件；LCD 會顯示目前編輯內容與選單。七段顯示器與 LED 可即時顯示目前文件狀態，EEPROM 則負責保存文件資料，使系統具備基本文字編輯與非揮發性儲存能力。
 
 若未來判斷 LCD、EEPROM、debounce、timer 或其他功能應改成 Verilog/Qsys/IP 並行實作，必須先提出變更計畫並取得確認，不直接變更硬體架構。

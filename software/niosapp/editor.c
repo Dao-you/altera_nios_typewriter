@@ -372,6 +372,83 @@ int editor_move_down(EditorDocument *editor)
 }
 
 /**
+ * Clear the current line contents and move the cursor to column 0.
+ * Returns 1 when the document changes.
+ */
+int editor_clear_current_line(EditorDocument *editor)
+{
+    int changed;
+    int line;
+
+    line = editor->current_line;
+    changed = editor->line_len[line] > 0u;
+    editor_clear_line(editor, line);
+    editor->cursor_col = 0;
+    if (changed) {
+        editor->dirty = 1;
+        return 1;
+    }
+
+    return 0;
+}
+
+/**
+ * Clear the whole document back to one empty line.
+ * Returns 1 when the document changes.
+ */
+int editor_clear_all(EditorDocument *editor)
+{
+    int changed;
+    int insert_mode;
+    int was_dirty;
+
+    changed = editor->total_lines != 1u || editor->line_len[0] > 0u;
+    insert_mode = editor->insert_mode;
+    was_dirty = editor->dirty;
+    editor_init(editor);
+    editor->insert_mode = (unsigned char)insert_mode;
+    editor->dirty = (unsigned char)(was_dirty || changed);
+    if (changed) {
+        return 1;
+    }
+
+    return 0;
+}
+
+/**
+ * Move the cursor to the start of the document.
+ * Returns 1 when the cursor moves.
+ */
+int editor_move_to_head(EditorDocument *editor)
+{
+    int changed;
+
+    changed = editor->current_line != 0u || editor->cursor_col != 0u;
+    editor->current_line = 0;
+    editor->cursor_col = 0;
+    return changed;
+}
+
+/**
+ * Move the cursor to the end of the document.
+ * Returns 1 when the cursor moves.
+ */
+int editor_move_to_end(EditorDocument *editor)
+{
+    unsigned char last_line;
+    unsigned char last_col;
+    int changed;
+
+    last_line = editor->total_lines - 1u;
+    last_col = editor->line_len[last_line];
+    changed = editor->current_line != last_line ||
+        editor->cursor_col != last_col;
+    editor->current_line = last_line;
+    editor->cursor_col = last_col;
+    return changed;
+}
+
+/**
  * Clear the dirty flag after a successful EEPROM save.
  */
 void editor_mark_saved(EditorDocument *editor)

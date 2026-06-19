@@ -11,14 +11,14 @@
 - 開機後 LCD 先顯示共用選單：`KEY3` / `KEY2` 在選項間左右移動，`KEY0` 確認。目前選項為 `EEPROM EDITOR` 與 `SD QUESTION`。
 - `SW[6:0]` 輸入 7-bit ASCII。
 - 進入文字編輯器後，`KEY1` 寫入目前 ASCII；若 ASCII 是 `0x08` 執行 BS 刪除左側字元，行頭時刪除上一行 LF 並合併行，`0x0A` 執行 LF 換行，`0x7F` 執行 DEL 刪除游標所在字元。
-- 進入文字編輯器後，`KEY0` 手動將目前文件存入 EEPROM。
+- 進入文字編輯器後，`KEY0` 開啟共用 editor 選單；選項為 `Save to ROM`、`Clear this line`、`Clear All`、`Move to head`、`Move to end`。
 - `SW16` 切換 Insert / Overwrite：`0` 為 Overwrite，`1` 為 Insert。
 - `SW17` 切換移動模式：左右 / 上下。
 - `KEY3` 往前 / 往上，`KEY2` 往後 / 往下。
 - LCD 第一列顯示目前編輯行，第二列顯示下一行；若目前已是最後一行，第二列以接近 LCD 內建游標的頻率閃爍顯示 `------END-------` 標記，避免與真實文字混淆。
 - HEX 以十進位顯示目前行號、游標位置、總行數；`HEX1~HEX0` 以十六進位顯示目前 ASCII。
 - LEDR 平時顯示目前行在文件總行數中的位置，從 `LEDR17` 往 `LEDR0` 亮；只有目前行是最後一行時 `LEDR0` 才亮。
-- `KEY0` 實際寫入 EEPROM 期間，LEDR 暫時改為 `LEDR17..LEDR1` 單燈跑馬燈；這只是儲存中視覺效果，不代表儲存進度。
+- editor 選單確認 `Save to ROM` 且實際寫入 EEPROM 期間，LEDR 暫時改為 `LEDR17..LEDR1` 單燈跑馬燈；這只是儲存中視覺效果，不代表儲存進度。
 - LEDG 顯示模式、目前 LCD 視窗右側是否還有未顯示內容、unsaved 狀態。
 - 文件先存在 C 程式的 Document Buffer，後續寫入 DE2-115 板上 24LC32 類 EEPROM。
 - PS/2 鍵盤由 Verilog 接收 scan code 並轉成 ASCII / editor control byte，透過 Qsys PIO FIFO 介面交給 Nios II C 程式，原本 SW/KEY 測試輸入仍保留。
@@ -44,8 +44,8 @@
 
 目前 `software/niosapp/` 已實作：
 
-- `main.c`：開機選單與主迴圈狀態切換；開機時提供選項列表給 `menu.c`，確認後進入 EEPROM/editor 或 SD `QUESTION.TXT` 讀取測試畫面；editor 內處理 `KEY0` 存檔、`KEY1` 寫入、`KEY2/KEY3` 移動。
-- `editor.c/.h`：固定大小 `EditorDocument`、Insert / Overwrite、BS、LF、DEL、左右上下移動、dirty flag、序列化 / 反序列化。
+- `main.c`：開機選單與主迴圈狀態切換；開機時提供選項列表給 `menu.c`，確認後進入 EEPROM/editor 或 SD `QUESTION.TXT` 讀取測試畫面；editor 內 `KEY0` 進入 editor 選單，`KEY1` 寫入，`KEY2/KEY3` 移動。
+- `editor.c/.h`：固定大小 `EditorDocument`、Insert / Overwrite、BS、LF、DEL、左右上下移動、清除目前行、清除全文、移到文件開頭/結尾、dirty flag、序列化 / 反序列化。
 - `menu.c/.h`：共用 LCD 選單狀態機；呼叫端只提供 null-terminated 選項列表，`KEY3` / `KEY2` 左右移動，`KEY0` 確認並回傳 option index。
 - `display.c/.h`：LEDR、LEDG、HEX、LCD 更新；HEX7~HEX2 使用十進位，HEX1~HEX0 顯示 ASCII 十六進位；LCD 以 16 欄 viewport 顯示目前行 / 下一行；最後一行的 END 標記會閃爍；共用選單畫面第一列顯示選項名稱，第二列用 `<` / `>` 與十進位 `目前/總數` 顯示位置；EEPROM 讀寫期間顯示 LEDR 跑馬燈。
 - `lcd.c/.h`：LCD1602 8-bit PIO bit-bang、兩行文字更新、LCD 內建 cursor 模式切換。
@@ -262,7 +262,7 @@ DE2-115 板上 EEPROM 規劃以 24LC32 類 32 Kbit 裝置為準：
 3208..3209 additive checksum, little-endian
 ```
 
-目前 `eeprom.c` 會以 32-byte page write 儲存整份文件，並在每頁寫入後 ACK polling。內容修改後只設定 `dirty`，不自動寫 EEPROM；`KEY0` 且 dirty 時才寫入，成功後呼叫 `editor_mark_saved()` 清除 dirty，失敗則保留 dirty 並設定 EEPROM error 顯示。若 dirty 為 0，`KEY0` 會略過實際 EEPROM 寫入。
+目前 `eeprom.c` 會以 32-byte page write 儲存整份文件，並在每頁寫入後 ACK polling。內容修改後只設定 `dirty`，不自動寫 EEPROM；editor 選單確認 `Save to ROM` 且 dirty 時才寫入，成功後呼叫 `editor_mark_saved()` 清除 dirty，失敗則保留 dirty 並設定 EEPROM error 顯示。若 dirty 為 0，`Save to ROM` 會略過實際 EEPROM 寫入。
 
 `eeprom_load_document_with_activity()` / `eeprom_save_document_with_activity()` 的 callback 僅用於 EEPROM blocking 期間視覺效果，不代表讀寫進度。
 
@@ -347,6 +347,8 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - 開機選單按 `KEY3` / `KEY2` 可左右切換 `EEPROM EDITOR` 與 `SD QUESTION`，按 `KEY0` 確認。
 - 開機選單確認 `EEPROM EDITOR` 進入原本 EEPROM/editor 流程，若 EEPROM 有有效文件會載入，否則空白文件開始。
 - 開機選單確認 `SD QUESTION` 會讀 SD 卡 FAT16/FAT32 根目錄短檔名 `QUESTION.TXT`；成功後 LCD 以兩列顯示內容，`KEY2/KEY3` 捲動，`KEY1` 可重新讀檔，`KEY0` 可切回 EEPROM/editor。
+- editor 主畫面按 `KEY0` 進入共用 editor 選單，`KEY3` / `KEY2` 可左右切換 `Save to ROM`、`Clear this line`、`Clear All`、`Move to head`、`Move to end`，按 `KEY0` 確認後回到 editor 主畫面。
+- editor 選單確認 `Clear this line` 會清空目前行並將游標移到該行開頭；確認 `Clear All` 會重設成單一空白行；確認 `Move to head` / `Move to end` 只移動游標，不設定 dirty。
 - `SW[6:0]` 可讀出並在 HEX1~HEX0 顯示 ASCII hex。
 - `SW[6:0] = 0x08` 時 KEY1 執行 BS，且游標在行頭時會刪除上一行 LF 並合併行；`0x0A` 時 KEY1 執行 LF，`0x7F` 時 KEY1 執行 DEL。
 - `SW[15]` 為 reset：`0` reset，`1` run。
@@ -358,8 +360,8 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - LCD 游標在目前編輯位置；Insert 模式為底線游標，Overwrite 模式為整格閃爍游標。
 - PS/2 鍵盤可輸入英文字母、數字、空白與常用標點；Shift/Caps Lock 會影響大小寫，Shift 會產生符號。
 - PS/2 Enter / Backspace / Delete 分別觸發 LF、BS、DEL；方向鍵觸發游標左、右、上、下移動。
-- `KEY0` 手動存檔時，`LEDR17..LEDR1` 會顯示單燈跑馬燈；這不是進度條，存檔結束後恢復目前行進度顯示。
-- `KEY0` 手動存檔後 reset/重新上電可從 EEPROM 讀回文件。
+- editor 選單確認 `Save to ROM` 並實際存檔時，`LEDR17..LEDR1` 會顯示單燈跑馬燈；這不是進度條，存檔結束後恢復目前行進度顯示。
+- editor 選單確認 `Save to ROM` 後 reset/重新上電可從 EEPROM 讀回文件。
 - `HEX7~HEX6` 目前行號、`HEX5~HEX4` 游標位置、`HEX3~HEX2` 文件總行數為十進位；`HEX1~HEX0` ASCII 撥桿狀態維持十六進位。
 
 ## 常見陷阱
