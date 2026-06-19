@@ -142,6 +142,32 @@ static unsigned int display_line_progress_percent(unsigned char current_line,
         ((unsigned int)total_lines - 1u));
 }
 
+/**
+ * Convert a selected menu option to a 1-based progress percentage.
+ */
+static unsigned int display_menu_progress_percent(unsigned char selected_index,
+                                                  unsigned char option_count)
+{
+    unsigned int position;
+    unsigned int percent;
+
+    if (option_count == 0u) {
+        return 0;
+    }
+
+    position = (unsigned int)selected_index + 1u;
+    if (position >= option_count) {
+        return 100u;
+    }
+
+    percent = (position * 100u) / (unsigned int)option_count;
+    if (percent == 0u) {
+        return 1u;
+    }
+
+    return percent;
+}
+
 static unsigned int display_ledg_mask(DisplayLedgIndicator indicator)
 {
     switch (indicator) {
@@ -630,7 +656,8 @@ static void display_show_menu_item_internal(const char *option_name,
     }
     display_build_menu_counter(selected_index, option_count, row);
 
-    display_write_ledr(0);
+    display_show_progress_percent(
+        display_menu_progress_percent(selected_index, option_count));
     display_clear_ledg();
     lcd_write_line(0, option_name, display_text_length(option_name, LCD_WIDTH));
     lcd_write_line(1, row, LCD_WIDTH);
@@ -686,7 +713,7 @@ void display_show_vi_command(const char *command)
     unsigned int label_start;
     unsigned int i;
 
-    display_write_ledr(0);
+    display_select_ledr_effect(DISPLAY_LEDR_FLAG_CONFIRM_BLINK);
     display_clear_ledg();
 
     for (i = 0; i < LCD_WIDTH; ++i) {

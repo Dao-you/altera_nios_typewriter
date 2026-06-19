@@ -48,10 +48,11 @@ OUTPUTS:
   column 1 for "<" when an option exists to the left, column 14 for ">" when
   an option exists to the right, and a centered decimal counter such as "1/2".
   Startup and editor menus share this layout. The editor menu has a VI command
-  page before the first option, so its first option also shows "<".
+  page before the first option, so its first option also shows "<". LEDR shows
+  the selected menu option as a progress bar over the option count.
 - VI command LCD: row 1 shows ":" followed by the command buffer and places
   the LCD cursor after it. Row 2 shows "VI COMMAND" with only the right menu
-  arrow.
+  arrow. LEDR uses the 2 Hz full-blink effect.
 - LCD: the EEPROM editor treats the centered blinking "EEPROM" marker as a
   boundary before document line 0, matching the END marker at the document end.
   When the cursor is on line 0, row 1 shows the marker and row 2 shows line 0.
@@ -69,12 +70,14 @@ OUTPUTS:
 - HEX5..HEX4: cursor column, decimal.
 - HEX3..HEX2: total line count, decimal.
 - HEX1..HEX0: current ASCII input, hexadecimal.
-- LEDR: current line progress from LEDR17 toward LEDR0; LEDR0 only lights on
-  the final document line. During blocking EEPROM reads/writes or SD reads,
-  pio_out_ledr_flag can hand LEDR to the Verilog effect controller for a
-  single-LED activity marquee. This is not a progress value. If the BSP has
-  not been regenerated with PIO_OUT_LEDR_FLAG_BASE, display.c falls back to
-  the older software-driven marquee.
+- LEDR: current line progress from LEDR17 toward LEDR0 in the editor; menu
+  screens use the same bar for selected option / option count. LEDR0 only
+  lights on the final document line or final menu option. VI command and modal
+  confirmation pages use the 2 Hz full-blink effect. During blocking EEPROM
+  reads/writes or SD reads, pio_out_ledr_flag can hand LEDR to the Verilog
+  effect controller for a single-LED activity marquee. This is not a progress
+  value. If the BSP has not been regenerated with PIO_OUT_LEDR_FLAG_BASE,
+  display.c falls back to the older software-driven marquee.
 - LEDG0: insert mode.
 - LEDG1: navigation mode.
 - LEDG5: EEPROM error.

@@ -29,10 +29,10 @@
 
 ### LCD 狀態畫面
 
-- `display_show_menu_item(option_name, selected_index, option_count)`：顯示共用水平選單目前選項。LCD 第一列顯示 `option_name`；第二列第二格在左側仍有選項時顯示 `<`，倒數第二格在右側仍有選項時顯示 `>`，中央顯示十進位 `目前/總數`，支援到 `99/99`。
-- `display_show_menu_item_with_left_edge(option_name, selected_index, option_count)`：顯示前方還有第 0 頁的水平選單；即使目前在第 1 頁，也會顯示左箭頭，提示 `KEY3` 可回到第 0 頁。
+- `display_show_menu_item(option_name, selected_index, option_count)`：顯示共用水平選單目前選項。LCD 第一列顯示 `option_name`；第二列第二格在左側仍有選項時顯示 `<`，倒數第二格在右側仍有選項時顯示 `>`，中央顯示十進位 `目前/總數`，支援到 `99/99`；LEDR 以 `目前選項/選項總數` 顯示進度條。
+- `display_show_menu_item_with_left_edge(option_name, selected_index, option_count)`：顯示前方還有第 0 頁的水平選單；即使目前在第 1 頁，也會顯示左箭頭，提示 `KEY3` 可回到第 0 頁；LEDR 進度條仍只計算實際選單選項，不把第 0 頁算入總數。
 - `display_show_message(line0, line1)`：顯示兩行固定狀態文字，並隱藏 cursor。
-- `display_show_vi_command(command)`：顯示 editor menu 的第 0 頁。第一列以 `:` 加上目前 command buffer，LCD cursor 放在命令尾端；第二列顯示 `VI COMMAND` 與右箭頭，提示 `KEY2` 可進入水平選單。
+- `display_show_vi_command(command)`：顯示 editor menu 的第 0 頁。第一列以 `:` 加上目前 command buffer，LCD cursor 放在命令尾端；第二列顯示 `VI COMMAND` 與右箭頭，提示 `KEY2` 可進入水平選單；LEDR 使用 2 Hz 全燈閃爍。
 - `display_show_info_message(message)`：第一列顯示訊息，第二列置中 `KEY0 OK`，等待呼叫端用 `KEY0` 返回，LEDR 使用 `pio_out_ledr_flag` 的 2 Hz 全燈閃爍。
 - `display_show_confirm_message(message)`：第一列顯示訊息，第二列顯示 `KEY1YES KEY0NO`，等待呼叫端用 `KEY1` 接受或 `KEY0` 取消，LEDR 使用 2 Hz 全燈閃爍。
 - `display_show_error_message(message)`：第一列顯示錯誤訊息，第二列置中 `KEY0 OK`，等待呼叫端用 `KEY0` 返回，LEDR 使用 5 Hz 全燈閃爍。
@@ -52,6 +52,7 @@
   - `percent == 0`：全暗。
   - `1..99`：只使用 `LEDR17..LEDR1`，不亮 `LEDR0`。
   - `percent >= 100`：亮到 `LEDR0`，也就是完整 100%。
+- 共用選單會把 `目前選項/選項總數` 轉成百分比後呼叫 `display_show_progress_percent()`；最後一個選項才會亮到 `LEDR0`。
 - `display_show_activity_marquee(tick)`：顯示 activity 跑馬燈，不代表進度。若 BSP 已提供 `PIO_OUT_LEDR_FLAG_BASE`，此函數只寫 `pio_out_ledr_flag` 交給 Verilog 自行跑燈；若 BSP 尚未更新，會退回舊的 C 端 `LEDR17..LEDR1` 單燈 fallback。
 - `display_save_marquee(tick)`：舊名稱相容 wrapper；新程式優先呼叫 `display_show_activity_marquee()`。
 
@@ -60,7 +61,7 @@
 - bit0 `0x01`：`1` = Nios `PIO_OUT_LEDR` 控制；`0` = Verilog effect 控制。
 - bit1 `0x02`：`LEDR17` 往 `LEDR0` 跑馬燈。
 - bit2 `0x04`：`LEDR0` 往 `LEDR17` 跑馬燈。
-- bit3 `0x08`：全 LEDR 2 Hz 閃爍，給一般確認/等待訊息使用。
+- bit3 `0x08`：全 LEDR 2 Hz 閃爍，給 VI command、一般確認/等待訊息使用。
 - bit4 `0x10`：全 LEDR 5 Hz 閃爍，給錯誤確認/等待訊息使用。
 - bit5..7：保留，寫 `0`。
 

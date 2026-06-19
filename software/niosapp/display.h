@@ -56,6 +56,8 @@ void display_update_with_markers(const EditorDocument *editor,
 
 /**
  * Show one option from a horizontal menu.
+ *
+ * LEDR shows the selected option as a progress bar over the option count.
  */
 void display_show_menu_item(const char *option_name,
                             unsigned char selected_index,
@@ -63,6 +65,8 @@ void display_show_menu_item(const char *option_name,
 
 /**
  * Show one option from a horizontal menu that has a page before option 0.
+ *
+ * LEDR shows the selected option as a progress bar over the option count.
  */
 void display_show_menu_item_with_left_edge(const char *option_name,
                                            unsigned char selected_index,
@@ -78,6 +82,7 @@ void display_show_message(const char *line0, const char *line1);
  *
  * The first row starts with ':' and places the LCD cursor after the command.
  * The second row shows the VI COMMAND page label with a right menu arrow.
+ * LEDR uses the 2 Hz confirmation blink while this page is active.
  */
 void display_show_vi_command(const char *command);
 
