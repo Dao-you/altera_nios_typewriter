@@ -9,7 +9,6 @@
 #define LCD_CURSOR_RIGHT_CONTEXT 2
 #define LCD_CURSOR_MAX_COL (LCD_WIDTH - 1 - LCD_CURSOR_RIGHT_CONTEXT)
 #define LCD_END_WORD "END"
-#define LCD_EEPROM_WORD "EEPROM"
 /* Approximate the LCD1602 built-in cursor blink cadence in main-loop ticks. */
 #define LCD_CURSOR_BLINK_MATCH_TICKS 34u
 #define LEDR_PROGRESS_LED_COUNT 18u
@@ -444,48 +443,50 @@ static unsigned int display_build_text_row(const char *text,
     return pos;
 }
 
+static int display_has_marker(const char *word)
+{
+    return word != 0 && word[0] != '\0';
+}
+
 /**
  * Refresh both LCD rows from the current editor viewport.
  */
 static void display_write_editor_lines(const EditorDocument *editor,
-                                       int view_start)
+                                       int view_start,
+                                       const char *top_marker,
+                                       const char *bottom_marker)
 {
     char view[LCD_WIDTH];
     int cursor_col;
+    int cursor_row;
 
-    display_build_line_view(editor, editor->current_line, view_start, view);
-    lcd_write_line(0, view, LCD_WIDTH);
-
-    if (editor->current_line + 1u < editor->total_lines) {
-        display_build_line_view(editor,
-                                (unsigned char)(editor->current_line + 1u),
-                                view_start,
-                                view);
+    cursor_row = 0;
+    if (display_has_marker(top_marker) && editor->current_line == 0u) {
+        display_show_top_blinking_marker(top_marker);
+        display_build_line_view(editor, 0, view_start, view);
         lcd_write_line(1, view, LCD_WIDTH);
-        display_reset_blinking_marker();
+        cursor_row = 1;
     } else {
-        display_show_bottom_blinking_marker(LCD_END_WORD);
+        display_build_line_view(editor, editor->current_line, view_start, view);
+        lcd_write_line(0, view, LCD_WIDTH);
+
+        if (editor->current_line + 1u < editor->total_lines) {
+            display_build_line_view(editor,
+                                    (unsigned char)(editor->current_line + 1u),
+                                    view_start,
+                                    view);
+            lcd_write_line(1, view, LCD_WIDTH);
+            display_reset_blinking_marker();
+        } else if (display_has_marker(bottom_marker)) {
+            display_show_bottom_blinking_marker(bottom_marker);
+        } else {
+            lcd_write_line(1, "", 0);
+            display_reset_blinking_marker();
+        }
     }
 
     cursor_col = (int)editor->cursor_col - view_start;
-    lcd_set_cursor(0, cursor_col);
-}
-
-/**
- * Refresh the EEPROM editor title row and the current editor line.
- */
-static void display_write_eeprom_editor_lines(const EditorDocument *editor,
-                                              int view_start)
-{
-    char view[LCD_WIDTH];
-    int cursor_col;
-
-    display_show_top_blinking_marker(LCD_EEPROM_WORD);
-    display_build_line_view(editor, editor->current_line, view_start, view);
-    lcd_write_line(1, view, LCD_WIDTH);
-
-    cursor_col = (int)editor->cursor_col - view_start;
-    lcd_set_cursor(1, cursor_col);
+    lcd_set_cursor(cursor_row, cursor_col);
 }
 
 /**
@@ -532,23 +533,24 @@ void display_update(const EditorDocument *editor,
                     int nav_mode,
                     int eeprom_error)
 {
-    int view_start;
-
-    view_start = display_update_editor_status(editor,
-                                              ascii,
-                                              nav_mode,
-                                              eeprom_error);
-    display_write_editor_lines(editor, view_start);
-    lcd_set_cursor_mode(editor->insert_mode);
+    display_update_with_markers(editor,
+                                ascii,
+                                nav_mode,
+                                eeprom_error,
+                                0,
+                                LCD_END_WORD);
 }
 
 /**
- * Update LEDR, LEDG, HEX0-HEX7, and LCD from the EEPROM editor state.
+ * Update LEDR, LEDG, HEX0-HEX7, and LCD from the current editor state with
+ * optional document boundary markers.
  */
-void display_update_eeprom_editor(const EditorDocument *editor,
-                                  unsigned char ascii,
-                                  int nav_mode,
-                                  int eeprom_error)
+void display_update_with_markers(const EditorDocument *editor,
+                                 unsigned char ascii,
+                                 int nav_mode,
+                                 int eeprom_error,
+                                 const char *top_marker,
+                                 const char *bottom_marker)
 {
     int view_start;
 
@@ -556,7 +558,7 @@ void display_update_eeprom_editor(const EditorDocument *editor,
                                               ascii,
                                               nav_mode,
                                               eeprom_error);
-    display_write_eeprom_editor_lines(editor, view_start);
+    display_write_editor_lines(editor, view_start, top_marker, bottom_marker);
     lcd_set_cursor_mode(editor->insert_mode);
 }
 

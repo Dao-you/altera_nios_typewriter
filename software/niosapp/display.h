@@ -41,15 +41,18 @@ void display_update(const EditorDocument *editor,
                     int eeprom_error);
 
 /**
- * Update the EEPROM editor main view.
+ * Update the editor view with optional boundary markers.
  *
- * The first LCD row shows a blinking EEPROM title marker. The second row shows
- * the current editor line and owns the LCD cursor.
+ * top_marker is shown before document line 0 when the cursor is on line 0.
+ * bottom_marker is shown after the last document line when the cursor is on
+ * the last line. Pass 0 to omit either marker.
  */
-void display_update_eeprom_editor(const EditorDocument *editor,
-                                  unsigned char ascii,
-                                  int nav_mode,
-                                  int eeprom_error);
+void display_update_with_markers(const EditorDocument *editor,
+                                 unsigned char ascii,
+                                 int nav_mode,
+                                 int eeprom_error,
+                                 const char *top_marker,
+                                 const char *bottom_marker);
 
 /**
  * Show one option from a horizontal menu.

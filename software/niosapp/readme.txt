@@ -51,10 +51,12 @@ OUTPUTS:
   page before the first option.
 - VI command LCD: row 1 shows ":" followed by the command buffer and places
   the LCD cursor after it. Row 2 shows "< VI COMMAND >".
-- LCD: the EEPROM editor main view uses the first row for a centered blinking
-  "EEPROM" marker and the second row for the current editor line through a
-  16-column viewport. The viewport scrolls on long lines after the cursor
-  crosses the third column or the third column from the right.
+- LCD: the EEPROM editor treats the centered blinking "EEPROM" marker as a
+  boundary before document line 0, matching the END marker at the document end.
+  When the cursor is on line 0, row 1 shows the marker and row 2 shows line 0.
+  On later lines the marker scrolls away and the LCD returns to the normal
+  current-line / next-line viewport. The viewport scrolls on long lines after
+  the cursor crosses the third column or the third column from the right.
   Insert mode uses the underline cursor; overwrite mode uses the blinking
   block cursor.
 - Modal messages: informational messages show "KEY0 OK" centered on row 2 and

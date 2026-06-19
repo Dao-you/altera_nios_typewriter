@@ -15,6 +15,8 @@
 #define SW_INSERT_MASK 0x00010000u
 #define SW_NAV_MASK 0x00020000u
 #define VI_COMMAND_MAX_LEN 15u
+#define EDITOR_TOP_MARKER "EEPROM"
+#define EDITOR_BOTTOM_MARKER "END"
 
 typedef enum {
     APP_STATE_MENU = 0,
@@ -744,10 +746,12 @@ int main(void)
             } else {
                 app_handle_keys(&editor, &keys, ascii, nav_mode);
                 app_handle_keyboard(&editor);
-                display_update_eeprom_editor(&editor,
-                                             ascii,
-                                             nav_mode,
-                                             eeprom_error);
+                display_update_with_markers(&editor,
+                                            ascii,
+                                            nav_mode,
+                                            eeprom_error,
+                                            EDITOR_TOP_MARKER,
+                                            EDITOR_BOTTOM_MARKER);
             }
         }
 
