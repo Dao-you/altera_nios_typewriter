@@ -22,6 +22,10 @@ module top (
     inout         EEP_I2C_SDAT,
     input         PS2_CLK,
     input         PS2_DAT,
+    output        SD_CLK,
+    output        SD_CMD,
+    inout  [3:0]  SD_DAT,
+    input         SD_WP_N,
     input         UART_RXD,
     output        UART_TXD
 );
@@ -46,6 +50,11 @@ module top (
     wire [7:0] keyboard_data_export;
     wire [7:0] keyboard_status_export;
     wire keyboard_ack_export;
+
+    wire sd_miso;
+    wire sd_mosi;
+    wire sd_sclk;
+    wire sd_ss_n;
 
     wire reset_n;
 
@@ -72,6 +81,16 @@ module top (
     assign EEP_I2C_SCLK = eep_scl;
     assign eep_sda_in = EEP_I2C_SDAT;
     assign EEP_I2C_SDAT = eep_sda_oe ? (eep_sda_out ? 1'bz : 1'b0) : 1'bz;
+
+    // SD card socket in SPI mode:
+    // CMD is MOSI, DAT0 is MISO, and DAT3 is chip select.
+    assign SD_CLK = sd_sclk;
+    assign SD_CMD = sd_mosi;
+    assign sd_miso = SD_DAT[0];
+    assign SD_DAT[0] = 1'bz;
+    assign SD_DAT[1] = 1'bz;
+    assign SD_DAT[2] = 1'bz;
+    assign SD_DAT[3] = sd_ss_n;
 
     assign UART_TXD = 1'b1;
 
@@ -108,7 +127,11 @@ module top (
         .pio_in_sw_external_connection_export           (SW),
         .pio_in_keyboard_data_external_connection_export (keyboard_data_export),
         .pio_in_keyboard_status_external_connection_export (keyboard_status_export),
-        .pio_out_keyboard_ack_external_connection_export (keyboard_ack_export)
+        .pio_out_keyboard_ack_external_connection_export (keyboard_ack_export),
+        .spi_sdcard_external_MISO                       (sd_miso),
+        .spi_sdcard_external_MOSI                       (sd_mosi),
+        .spi_sdcard_external_SCLK                       (sd_sclk),
+        .spi_sdcard_external_SS_n                       (sd_ss_n)
     );
 
 endmodule

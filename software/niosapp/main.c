@@ -7,11 +7,24 @@
 #include "eeprom.h"
 #include "key.h"
 #include "keyboard.h"
+#include "sdcard.h"
 
 #define MAIN_LOOP_DELAY_US 10000
 #define KEYBOARD_DRAIN_LIMIT 16
 #define SW_INSERT_MASK 0x00010000u
 #define SW_NAV_MASK 0x00020000u
+
+typedef enum {
+    APP_STATE_MENU = 0,
+    APP_STATE_EDITOR,
+    APP_STATE_SD_VIEW
+} AppState;
+
+static char app_sd_text[SDCARD_TEXT_BUFFER_SIZE];
+static unsigned int app_sd_text_length = 0;
+static unsigned int app_sd_first_line = 0;
+static unsigned int app_sd_line_count = 1;
+static SdCardResult app_sd_status = SDCARD_NO_SPI;
 
 /**
  * Read SW[17:0] from the Avalon PIO.
@@ -30,7 +43,7 @@ static unsigned int app_read_switches(void)
 static void app_show_eeprom_activity(unsigned int tick, void *context)
 {
     (void)context;
-    display_save_marquee(tick);
+    display_show_activity_marquee(tick);
 }
 
 /**
@@ -49,6 +62,78 @@ static int app_handle_save(EditorDocument *editor)
 
     printf("EEPROM save failed\n");
     return 1;
+}
+
+static int app_load_eeprom_document(EditorDocument *editor)
+{
+    int load_status;
+
+    display_show_message("Loading EEPROM", "Please wait");
+    app_show_eeprom_activity(0, 0);
+    eeprom_init();
+    load_status = eeprom_load_document_with_activity(editor,
+                                                     app_show_eeprom_activity,
+                                                     0);
+    if (load_status == EEPROM_LOAD_OK) {
+        printf("EEPROM document loaded\n");
+    } else if (load_status == EEPROM_LOAD_EMPTY) {
+        printf("EEPROM has no valid document; starting blank\n");
+    } else {
+        printf("EEPROM load failed; starting blank\n");
+    }
+
+    return load_status == EEPROM_LOAD_ERROR;
+}
+
+static unsigned int app_count_text_lines(const char *text, unsigned int length)
+{
+    unsigned int i;
+    unsigned int count;
+
+    if (length == 0u) {
+        return 1u;
+    }
+
+    count = 1u;
+    for (i = 0u; i < length; ++i) {
+        if (text[i] == '\n' && i + 1u < length) {
+            ++count;
+        }
+    }
+
+    return count;
+}
+
+static int app_sd_text_available(void)
+{
+    return app_sd_status == SDCARD_OK ||
+        app_sd_status == SDCARD_OK_TRUNCATED;
+}
+
+static void app_display_sd_view(void)
+{
+    if (app_sd_text_available()) {
+        display_show_text_page(app_sd_text,
+                               app_sd_text_length,
+                               app_sd_first_line);
+    } else {
+        display_show_message("SD QUESTION.TXT",
+                             sdcard_result_text(app_sd_status));
+    }
+}
+
+static void app_load_sd_question(void)
+{
+    display_show_message("Reading SD", "QUESTION.TXT");
+    display_show_activity_marquee(0);
+    app_sd_status = sdcard_read_question_text(app_sd_text,
+                                              SDCARD_TEXT_BUFFER_SIZE,
+                                              &app_sd_text_length);
+    app_sd_first_line = 0u;
+    app_sd_line_count = app_count_text_lines(app_sd_text, app_sd_text_length);
+    printf("SD QUESTION.TXT: %s, %u bytes\n",
+           sdcard_result_text(app_sd_status),
+           app_sd_text_length);
 }
 
 /**
@@ -130,33 +215,22 @@ int main(void)
 {
     EditorDocument editor;
     KeyState keys;
+    AppState state;
     unsigned int switches;
     unsigned char ascii;
     int nav_mode;
     int eeprom_error;
-    int load_status;
+    int editor_loaded;
 
     printf("Nios II text editor starting\n");
 
     editor_init(&editor);
     display_init();
-    app_show_eeprom_activity(0, 0);
-
-    eeprom_init();
-    load_status = eeprom_load_document_with_activity(&editor,
-                                                     app_show_eeprom_activity,
-                                                     0);
-    eeprom_error = (load_status == EEPROM_LOAD_ERROR);
-    if (load_status == EEPROM_LOAD_OK) {
-        printf("EEPROM document loaded\n");
-    } else if (load_status == EEPROM_LOAD_EMPTY) {
-        printf("EEPROM has no valid document; starting blank\n");
-    } else {
-        printf("EEPROM load failed; starting blank\n");
-    }
-
     key_init(&keys);
     keyboard_init();
+    eeprom_error = 0;
+    editor_loaded = 0;
+    state = APP_STATE_MENU;
 
     while (1) {
         switches = app_read_switches();
@@ -165,9 +239,45 @@ int main(void)
         editor_set_insert_mode(&editor, (switches & SW_INSERT_MASK) != 0);
 
         key_update(&keys);
-        app_handle_keys(&editor, &keys, ascii, nav_mode, &eeprom_error);
-        app_handle_keyboard(&editor);
-        display_update(&editor, ascii, nav_mode, eeprom_error);
+        if (state == APP_STATE_MENU) {
+            if (key_pressed_edge(&keys, KEY_MASK_0)) {
+                if (!editor_loaded) {
+                    eeprom_error = app_load_eeprom_document(&editor);
+                    editor_loaded = 1;
+                }
+                state = APP_STATE_EDITOR;
+            } else if (key_pressed_edge(&keys, KEY_MASK_1)) {
+                app_load_sd_question();
+                state = APP_STATE_SD_VIEW;
+            } else {
+                display_show_menu();
+            }
+        } else if (state == APP_STATE_SD_VIEW) {
+            if (key_pressed_edge(&keys, KEY_MASK_0)) {
+                if (!editor_loaded) {
+                    eeprom_error = app_load_eeprom_document(&editor);
+                    editor_loaded = 1;
+                }
+                state = APP_STATE_EDITOR;
+            } else {
+                if (key_pressed_edge(&keys, KEY_MASK_1)) {
+                    app_load_sd_question();
+                }
+                if (key_pressed_edge(&keys, KEY_MASK_2) &&
+                    app_sd_first_line + 2u < app_sd_line_count) {
+                    ++app_sd_first_line;
+                }
+                if (key_pressed_edge(&keys, KEY_MASK_3) &&
+                    app_sd_first_line > 0u) {
+                    --app_sd_first_line;
+                }
+                app_display_sd_view();
+            }
+        } else {
+            app_handle_keys(&editor, &keys, ascii, nav_mode, &eeprom_error);
+            app_handle_keyboard(&editor);
+            display_update(&editor, ascii, nav_mode, eeprom_error);
+        }
 
         alt_busy_sleep(MAIN_LOOP_DELAY_US);
     }

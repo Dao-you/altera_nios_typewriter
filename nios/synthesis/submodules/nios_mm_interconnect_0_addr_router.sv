@@ -50,9 +50,9 @@ module nios_mm_interconnect_0_addr_router_default_decode
                DEFAULT_DESTID = 2 
    )
   (output [85 - 81 : 0] default_destination_id,
-   output [25-1 : 0] default_wr_channel,
-   output [25-1 : 0] default_rd_channel,
-   output [25-1 : 0] default_src_channel
+   output [26-1 : 0] default_wr_channel,
+   output [26-1 : 0] default_rd_channel,
+   output [26-1 : 0] default_src_channel
   );
 
   assign default_destination_id = 
@@ -63,7 +63,7 @@ module nios_mm_interconnect_0_addr_router_default_decode
       assign default_src_channel = '0;
     end
     else begin
-      assign default_src_channel = 25'b1 << DEFAULT_CHANNEL;
+      assign default_src_channel = 26'b1 << DEFAULT_CHANNEL;
     end
   end
   endgenerate
@@ -74,8 +74,8 @@ module nios_mm_interconnect_0_addr_router_default_decode
       assign default_rd_channel = '0;
     end
     else begin
-      assign default_wr_channel = 25'b1 << DEFAULT_WR_CHANNEL;
-      assign default_rd_channel = 25'b1 << DEFAULT_RD_CHANNEL;
+      assign default_wr_channel = 26'b1 << DEFAULT_WR_CHANNEL;
+      assign default_rd_channel = 26'b1 << DEFAULT_RD_CHANNEL;
     end
   end
   endgenerate
@@ -105,7 +105,7 @@ module nios_mm_interconnect_0_addr_router
     // -------------------
     output                          src_valid,
     output reg [99-1    : 0] src_data,
-    output reg [25-1 : 0] src_channel,
+    output reg [26-1 : 0] src_channel,
     output                          src_startofpacket,
     output                          src_endofpacket,
     input                           src_ready
@@ -121,7 +121,7 @@ module nios_mm_interconnect_0_addr_router
     localparam PKT_PROTECTION_H = 89;
     localparam PKT_PROTECTION_L = 87;
     localparam ST_DATA_W = 99;
-    localparam ST_CHANNEL_W = 25;
+    localparam ST_CHANNEL_W = 26;
     localparam DECODER_TYPE = 0;
 
     localparam PKT_TRANS_WRITE = 57;
@@ -167,7 +167,7 @@ module nios_mm_interconnect_0_addr_router
     assign src_startofpacket = sink_startofpacket;
     assign src_endofpacket   = sink_endofpacket;
     wire [PKT_DEST_ID_W-1:0] default_destid;
-    wire [25-1 : 0] default_src_channel;
+    wire [26-1 : 0] default_src_channel;
 
 
 
@@ -193,13 +193,13 @@ module nios_mm_interconnect_0_addr_router
 
     // ( 0x20000 .. 0x40000 )
     if ( {address[RG:PAD0],{PAD0{1'b0}}} == 19'h20000   ) begin
-            src_channel = 25'b10;
+            src_channel = 26'b10;
             src_data[PKT_DEST_ID_H:PKT_DEST_ID_L] = 2;
     end
 
     // ( 0x40800 .. 0x41000 )
     if ( {address[RG:PAD1],{PAD1{1'b0}}} == 19'h40800   ) begin
-            src_channel = 25'b01;
+            src_channel = 26'b01;
             src_data[PKT_DEST_ID_H:PKT_DEST_ID_L] = 0;
     end
 

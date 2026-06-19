@@ -2,7 +2,7 @@ set_global_assignment -entity "nios" -library "nios" -name IP_TOOL_NAME "Qsys"
 set_global_assignment -entity "nios" -library "nios" -name IP_TOOL_VERSION "13.1"
 set_global_assignment -entity "nios" -library "nios" -name IP_TOOL_ENV "Qsys"
 set_global_assignment -library "nios" -name SOPCINFO_FILE [file join $::quartus(qip_path) "../../nios.sopcinfo"]
-set_global_assignment -entity "nios" -library "nios" -name SLD_INFO "QSYS_NAME nios HAS_SOPCINFO 1 GENERATION_ID 1781762049"
+set_global_assignment -entity "nios" -library "nios" -name SLD_INFO "QSYS_NAME nios HAS_SOPCINFO 1 GENERATION_ID 1781767392"
 set_global_assignment -library "nios" -name MISC_FILE [file join $::quartus(qip_path) "../../nios.cmp"]
 set_global_assignment -library "nios" -name SLD_FILE [file join $::quartus(qip_path) "nios.regmap"]
 set_global_assignment -library "nios" -name SLD_FILE [file join $::quartus(qip_path) "nios.debuginfo"]
@@ -33,6 +33,7 @@ set_global_assignment -library "nios" -name SYSTEMVERILOG_FILE [file join $::qua
 set_global_assignment -library "nios" -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) "submodules/altera_merlin_master_agent.sv"]
 set_global_assignment -library "nios" -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) "submodules/altera_merlin_slave_translator.sv"]
 set_global_assignment -library "nios" -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) "submodules/altera_merlin_master_translator.sv"]
+set_global_assignment -library "nios" -name VERILOG_FILE [file join $::quartus(qip_path) "submodules/nios_spi_sdcard.v"]
 set_global_assignment -library "nios" -name VERILOG_FILE [file join $::quartus(qip_path) "submodules/nios_pio_in_keyboard_data.v"]
 set_global_assignment -library "nios" -name VERILOG_FILE [file join $::quartus(qip_path) "submodules/nios_pio_in_eep_sda_in.v"]
 set_global_assignment -library "nios" -name VERILOG_FILE [file join $::quartus(qip_path) "submodules/nios_pio_out_eep_scl.v"]
@@ -113,6 +114,9 @@ set_global_assignment -entity "altera_merlin_slave_translator" -library "nios" -
 set_global_assignment -entity "altera_merlin_master_translator" -library "nios" -name IP_TOOL_NAME "altera_merlin_master_translator"
 set_global_assignment -entity "altera_merlin_master_translator" -library "nios" -name IP_TOOL_VERSION "13.1"
 set_global_assignment -entity "altera_merlin_master_translator" -library "nios" -name IP_TOOL_ENV "Qsys"
+set_global_assignment -entity "nios_spi_sdcard" -library "nios" -name IP_TOOL_NAME "altera_avalon_spi"
+set_global_assignment -entity "nios_spi_sdcard" -library "nios" -name IP_TOOL_VERSION "13.1"
+set_global_assignment -entity "nios_spi_sdcard" -library "nios" -name IP_TOOL_ENV "Qsys"
 set_global_assignment -entity "nios_pio_in_keyboard_data" -library "nios" -name IP_TOOL_NAME "altera_avalon_pio"
 set_global_assignment -entity "nios_pio_in_keyboard_data" -library "nios" -name IP_TOOL_VERSION "13.1"
 set_global_assignment -entity "nios_pio_in_keyboard_data" -library "nios" -name IP_TOOL_ENV "Qsys"

@@ -4,7 +4,7 @@
  * Machine generated for CPU 'cpu' in SOPC Builder design 'nios'
  * SOPC Builder design path: D:/quartus/quartusFinalProject/nios.sopcinfo
  *
- * Generated: Thu Jun 18 00:44:16 CST 2026
+ * Generated: Thu Jun 18 15:44:06 CST 2026
  */
 
 /*
@@ -60,6 +60,7 @@
 
 #include "altera_nios2_qsys_irq.h"
 #include "altera_avalon_jtag_uart.h"
+#include "altera_avalon_spi.h"
 #include "altera_avalon_sysid_qsys.h"
 
 /*
@@ -68,6 +69,7 @@
 
 ALTERA_NIOS2_QSYS_IRQ_INSTANCE ( CPU, cpu);
 ALTERA_AVALON_JTAG_UART_INSTANCE ( JTAG_UART, jtag_uart);
+ALTERA_AVALON_SPI_INSTANCE ( SPI_SDCARD, spi_sdcard);
 ALTERA_AVALON_SYSID_QSYS_INSTANCE ( SYSID_QSYS, sysid_qsys);
 
 /*
@@ -92,5 +94,6 @@ void alt_irq_init ( const void* base )
 void alt_sys_init( void )
 {
     ALTERA_AVALON_JTAG_UART_INIT ( JTAG_UART, jtag_uart);
+    ALTERA_AVALON_SPI_INIT ( SPI_SDCARD, spi_sdcard);
     ALTERA_AVALON_SYSID_QSYS_INIT ( SYSID_QSYS, sysid_qsys);
 }

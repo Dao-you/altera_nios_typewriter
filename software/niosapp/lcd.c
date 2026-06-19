@@ -127,6 +127,14 @@ void lcd_write_line(int row, const char *text, int length)
 }
 
 /**
+ * Hide the LCD cursor and disable cursor blinking.
+ */
+void lcd_hide_cursor(void)
+{
+    lcd_write_command(0x0C);
+}
+
+/**
  * Select the LCD cursor style used after display refresh.
  * insert_mode=1 shows the non-blinking underline cursor; insert_mode=0 shows
  * the blinking block cursor for overwrite mode.

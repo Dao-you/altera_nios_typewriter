@@ -4,22 +4,19 @@
 #include "system.h"
 #include "altera_avalon_pio_regs.h"
 
-#define LEDG_INSERT 0x01u
-#define LEDG_NAV_MODE 0x02u
-#define LEDG_EEPROM_ERROR 0x20u
-#define LEDG_OVERFLOW 0x40u
-#define LEDG_DIRTY 0x80u
 #define LCD_WIDTH 16
 #define LCD_CURSOR_LEFT_CONTEXT 2
 #define LCD_CURSOR_RIGHT_CONTEXT 2
 #define LCD_CURSOR_MAX_COL (LCD_WIDTH - 1 - LCD_CURSOR_RIGHT_CONTEXT)
-#define LCD_END_MARKER "------END-------"
+#define LCD_END_WORD "END"
 /* Approximate the LCD1602 built-in cursor blink cadence in main-loop ticks. */
 #define LCD_CURSOR_BLINK_MATCH_TICKS 34u
-#define SAVE_MARQUEE_LED_COUNT 17u
+#define LEDR_PROGRESS_LED_COUNT 18u
+#define LEDR_ACTIVITY_LED_COUNT 17u
 
 static int display_lcd_view_start = 0;
-static unsigned int display_end_blink_tick = 0;
+static unsigned int display_marker_blink_tick = 0;
+static unsigned int display_ledg_state = 0;
 
 /**
  * Write one encoded digit to a HEX PIO.
@@ -57,35 +54,104 @@ static void display_write_decimal_pair(unsigned int high_base,
     display_write_hex(low_base, seven_seg_encode_hex((unsigned char)(value % 10u)));
 }
 
-/**
- * Build a current-line progress mask from LEDR17 down to LEDR0.
- * LEDR0 lights only when the cursor is on the final document line.
- */
-static unsigned int display_line_progress(unsigned char current_line,
-                                          unsigned char total_lines)
+static unsigned int display_progress_mask_from_percent(unsigned int percent)
 {
     unsigned int lit;
     unsigned int i;
     unsigned int mask;
 
-    if (total_lines <= 1u || current_line + 1u >= total_lines) {
-        lit = 18u;
-    } else {
-        lit = 1u + ((unsigned int)current_line * 16u) /
-            ((unsigned int)total_lines - 1u);
+    if (percent == 0u) {
+        return 0;
     }
-    if (lit > 18u) {
-        lit = 18u;
-    } else if (lit < 1u) {
+    if (percent >= 100u) {
+        lit = LEDR_PROGRESS_LED_COUNT;
+    } else {
+        lit = 1u + ((percent - 1u) * (LEDR_PROGRESS_LED_COUNT - 2u)) / 98u;
+    }
+    if (lit > LEDR_PROGRESS_LED_COUNT) {
+        lit = LEDR_PROGRESS_LED_COUNT;
+    }
+    if (lit < 1u) {
         lit = 1u;
     }
 
     mask = 0;
     for (i = 0; i < lit; ++i) {
-        mask |= 1u << (17u - i);
+        mask |= 1u << ((LEDR_PROGRESS_LED_COUNT - 1u) - i);
     }
 
     return mask;
+}
+
+/**
+ * Convert the current document line to a 0..100 position percentage.
+ */
+static unsigned int display_line_progress_percent(unsigned char current_line,
+                                                  unsigned char total_lines)
+{
+    if (total_lines <= 1u || current_line + 1u >= total_lines) {
+        return 100u;
+    }
+
+    return 1u + (((unsigned int)current_line * 98u) /
+        ((unsigned int)total_lines - 1u));
+}
+
+static unsigned int display_ledg_mask(DisplayLedgIndicator indicator)
+{
+    switch (indicator) {
+    case DISPLAY_LEDG_INSERT:
+    case DISPLAY_LEDG_NAV_MODE:
+    case DISPLAY_LEDG_EEPROM_ERROR:
+    case DISPLAY_LEDG_OVERFLOW:
+    case DISPLAY_LEDG_DIRTY:
+        return 1u << (unsigned int)indicator;
+    default:
+        return 0;
+    }
+}
+
+static void display_write_ledg_state(void)
+{
+    IOWR_ALTERA_AVALON_PIO_DATA(PIO_OUT_LEDG_BASE, display_ledg_state);
+}
+
+/**
+ * Set or clear one LEDG indicator through the display controller.
+ */
+void display_set_ledg(DisplayLedgIndicator indicator, int enabled)
+{
+    unsigned int mask;
+
+    mask = display_ledg_mask(indicator);
+    if (mask == 0u) {
+        return;
+    }
+
+    if (enabled) {
+        display_ledg_state |= mask;
+    } else {
+        display_ledg_state &= ~mask;
+    }
+    display_write_ledg_state();
+}
+
+/**
+ * Clear every LEDG indicator through the display controller.
+ */
+void display_clear_ledg(void)
+{
+    display_ledg_state = 0;
+    display_write_ledg_state();
+}
+
+/**
+ * Show a LEDR progress bar from LEDR17 toward LEDR0.
+ */
+void display_show_progress_percent(unsigned int percent)
+{
+    IOWR_ALTERA_AVALON_PIO_DATA(PIO_OUT_LEDR_BASE,
+                                display_progress_mask_from_percent(percent));
 }
 
 /**
@@ -102,9 +168,9 @@ void display_init(void)
     display_write_hex(PIO_OUT_HEX6_BASE, seven_seg_blank());
     display_write_hex(PIO_OUT_HEX7_BASE, seven_seg_blank());
     IOWR_ALTERA_AVALON_PIO_DATA(PIO_OUT_LEDR_BASE, 0);
-    IOWR_ALTERA_AVALON_PIO_DATA(PIO_OUT_LEDG_BASE, 0);
+    display_clear_ledg();
     display_lcd_view_start = 0;
-    display_end_blink_tick = 0;
+    display_marker_blink_tick = 0;
     lcd_init();
 }
 
@@ -178,26 +244,126 @@ static void display_build_line_view(const EditorDocument *editor,
     }
 }
 
-/**
- * Return nonzero when the LCD END marker should be visible on this refresh.
- *
- * The marker is a UI hint rather than document text, so it blinks to avoid
- * being mistaken for actual saved content.
- */
-static int display_should_show_end_marker(void)
+static int display_should_show_blinking_marker(void)
 {
     int visible;
 
     visible =
-        ((display_end_blink_tick / LCD_CURSOR_BLINK_MATCH_TICKS) & 0x01u) == 0u;
-    ++display_end_blink_tick;
+        ((display_marker_blink_tick / LCD_CURSOR_BLINK_MATCH_TICKS) &
+         0x01u) == 0u;
+    ++display_marker_blink_tick;
     return visible;
+}
+
+static void display_reset_blinking_marker(void)
+{
+    display_marker_blink_tick = 0;
+}
+
+static unsigned int display_marker_word_length(const char *word)
+{
+    unsigned int length;
+
+    length = 0;
+    if (word == 0) {
+        return 0;
+    }
+    while (length < LCD_WIDTH && word[length] != '\0') {
+        ++length;
+    }
+
+    return length;
+}
+
+static void display_build_center_marker(const char *word, char *marker)
+{
+    unsigned int word_length;
+    unsigned int word_start;
+    unsigned int i;
+
+    word_length = display_marker_word_length(word);
+    word_start = (LCD_WIDTH - word_length) / 2u;
+
+    for (i = 0; i < LCD_WIDTH; ++i) {
+        marker[i] = '-';
+    }
+    for (i = 0; i < word_length; ++i) {
+        marker[word_start + i] = word[i];
+    }
+}
+
+/**
+ * Show a blinking LCD marker centered in '-' fill characters.
+ */
+void display_show_blinking_marker(int row, const char *word)
+{
+    char marker[LCD_WIDTH];
+
+    if (display_should_show_blinking_marker()) {
+        display_build_center_marker(word, marker);
+        lcd_write_line(row, marker, LCD_WIDTH);
+    } else {
+        lcd_write_line(row, "", 0);
+    }
 }
 
 static int display_line_has_hidden_right(const EditorDocument *editor,
                                          int view_start)
 {
     return editor->line_len[editor->current_line] > view_start + LCD_WIDTH;
+}
+
+static unsigned int display_skip_text_lines(const char *text,
+                                            unsigned int length,
+                                            unsigned int first_line)
+{
+    unsigned int pos;
+    unsigned int line;
+
+    pos = 0;
+    line = 0;
+    while (line < first_line && pos < length) {
+        while (pos < length && text[pos] != '\n') {
+            ++pos;
+        }
+        if (pos < length && text[pos] == '\n') {
+            ++pos;
+        }
+        ++line;
+    }
+
+    return pos;
+}
+
+static unsigned int display_build_text_row(const char *text,
+                                           unsigned int length,
+                                           unsigned int pos,
+                                           char *row)
+{
+    int col;
+    unsigned char ch;
+
+    col = 0;
+    while (pos < length && text[pos] != '\n') {
+        if (col < LCD_WIDTH && text[pos] != '\r') {
+            ch = (unsigned char)text[pos];
+            if (ch < 0x20u || ch > 0x7Eu) {
+                ch = ' ';
+            }
+            row[col] = (char)ch;
+            ++col;
+        }
+        ++pos;
+    }
+    while (col < LCD_WIDTH) {
+        row[col] = ' ';
+        ++col;
+    }
+    if (pos < length && text[pos] == '\n') {
+        ++pos;
+    }
+
+    return pos;
 }
 
 /**
@@ -218,13 +384,9 @@ static void display_write_editor_lines(const EditorDocument *editor,
                                 view_start,
                                 view);
         lcd_write_line(1, view, LCD_WIDTH);
-        display_end_blink_tick = 0;
+        display_reset_blinking_marker();
     } else {
-        if (display_should_show_end_marker()) {
-            lcd_write_line(1, LCD_END_MARKER, LCD_WIDTH);
-        } else {
-            lcd_write_line(1, "", 0);
-        }
+        display_show_blinking_marker(1, LCD_END_WORD);
     }
 
     cursor_col = (int)editor->cursor_col - view_start;
@@ -239,32 +401,21 @@ void display_update(const EditorDocument *editor,
                     int nav_mode,
                     int eeprom_error)
 {
-    unsigned int ledg;
     int view_start;
 
     view_start = display_view_start(editor);
 
-    ledg = 0;
-    if (editor->insert_mode) {
-        ledg |= LEDG_INSERT;
-    }
-    if (nav_mode) {
-        ledg |= LEDG_NAV_MODE;
-    }
-    if (eeprom_error) {
-        ledg |= LEDG_EEPROM_ERROR;
-    }
-    if (display_line_has_hidden_right(editor, view_start)) {
-        ledg |= LEDG_OVERFLOW;
-    }
-    if (editor->dirty) {
-        ledg |= LEDG_DIRTY;
-    }
+    display_clear_ledg();
+    display_set_ledg(DISPLAY_LEDG_INSERT, editor->insert_mode);
+    display_set_ledg(DISPLAY_LEDG_NAV_MODE, nav_mode);
+    display_set_ledg(DISPLAY_LEDG_EEPROM_ERROR, eeprom_error);
+    display_set_ledg(DISPLAY_LEDG_OVERFLOW,
+                     display_line_has_hidden_right(editor, view_start));
+    display_set_ledg(DISPLAY_LEDG_DIRTY, editor->dirty);
 
-    IOWR_ALTERA_AVALON_PIO_DATA(PIO_OUT_LEDR_BASE,
-                                display_line_progress(editor->current_line,
-                                                      editor->total_lines));
-    IOWR_ALTERA_AVALON_PIO_DATA(PIO_OUT_LEDG_BASE, ledg);
+    display_show_progress_percent(
+        display_line_progress_percent(editor->current_line,
+                                      editor->total_lines));
 
     display_write_decimal_pair(PIO_OUT_HEX7_BASE, PIO_OUT_HEX6_BASE,
                                (unsigned char)(editor->current_line + 1u));
@@ -280,12 +431,67 @@ void display_update(const EditorDocument *editor,
 }
 
 /**
- * Show a save-activity marquee on LEDR17..LEDR1.
+ * Show the startup mode selection menu.
  */
-void display_save_marquee(unsigned int tick)
+void display_show_menu(void)
+{
+    IOWR_ALTERA_AVALON_PIO_DATA(PIO_OUT_LEDR_BASE, 0);
+    display_clear_ledg();
+    lcd_write_line(0, "KEY0 EEPROM", 11);
+    lcd_write_line(1, "KEY1 SD QUESTION", 16);
+    lcd_hide_cursor();
+}
+
+/**
+ * Show a fixed two-line status message.
+ */
+void display_show_message(const char *line0, const char *line1)
+{
+    lcd_write_line(0, line0, LCD_WIDTH);
+    lcd_write_line(1, line1, LCD_WIDTH);
+    lcd_hide_cursor();
+}
+
+/**
+ * Show two newline-delimited text rows starting at first_line.
+ */
+void display_show_text_page(const char *text,
+                            unsigned int length,
+                            unsigned int first_line)
+{
+    char row[LCD_WIDTH];
+    unsigned int pos;
+
+    pos = display_skip_text_lines(text, length, first_line);
+    if (length == 0u) {
+        lcd_write_line(0, "(empty)", 7);
+        lcd_write_line(1, "", 0);
+        lcd_hide_cursor();
+        return;
+    }
+
+    pos = display_build_text_row(text, length, pos, row);
+    lcd_write_line(0, row, LCD_WIDTH);
+    (void)display_build_text_row(text, length, pos, row);
+    lcd_write_line(1, row, LCD_WIDTH);
+    lcd_hide_cursor();
+}
+
+/**
+ * Show an activity marquee on LEDR17..LEDR1.
+ */
+void display_show_activity_marquee(unsigned int tick)
 {
     unsigned int led_index;
 
-    led_index = 17u - (tick % SAVE_MARQUEE_LED_COUNT);
+    led_index = 17u - (tick % LEDR_ACTIVITY_LED_COUNT);
     IOWR_ALTERA_AVALON_PIO_DATA(PIO_OUT_LEDR_BASE, 1u << led_index);
+}
+
+/**
+ * Compatibility wrapper for existing EEPROM activity callbacks.
+ */
+void display_save_marquee(unsigned int tick)
+{
+    display_show_activity_marquee(tick);
 }

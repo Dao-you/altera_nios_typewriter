@@ -129,3 +129,20 @@ set_location_assignment PIN_G6 -to PS2_CLK
 set_location_assignment PIN_H5 -to PS2_DAT
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to PS2_CLK
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to PS2_DAT
+
+# SD Card
+set_location_assignment PIN_AE13 -to SD_CLK
+set_location_assignment PIN_AD14 -to SD_CMD
+set_location_assignment PIN_AE14 -to SD_DAT[0]
+set_location_assignment PIN_AF13 -to SD_DAT[1]
+set_location_assignment PIN_AB14 -to SD_DAT[2]
+set_location_assignment PIN_AC14 -to SD_DAT[3]
+set_location_assignment PIN_AA13 -to SD_WP_N
+
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SD_CLK
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SD_CMD
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SD_DAT[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SD_DAT[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SD_DAT[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SD_DAT[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to SD_WP_N
