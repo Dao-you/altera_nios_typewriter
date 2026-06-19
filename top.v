@@ -51,6 +51,9 @@ module top (
     wire [7:0] keyboard_status_export;
     wire keyboard_ack_export;
 
+    wire [17:0] ledr_export;
+    wire [7:0] ledr_flag_export;
+
     wire sd_miso;
     wire sd_mosi;
     wire sd_sclk;
@@ -94,6 +97,14 @@ module top (
 
     assign UART_TXD = 1'b1;
 
+    ledr_flag_controller ledr0 (
+        .clk(CLOCK_50),
+        .reset_n(reset_n),
+        .nios_ledr(ledr_export),
+        .flag(ledr_flag_export),
+        .ledr(LEDR)
+    );
+
     ps2_keyboard_controller keyboard0 (
         .clk(CLOCK_50),
         .reset_n(reset_n),
@@ -122,7 +133,7 @@ module top (
         .pio_out_hex1_external_connection_export        (hex1_export),
         .pio_out_hex0_external_connection_export        (hex0_export),
         .pio_out_ledg_external_connection_export        (LEDG),
-        .pio_out_ledr_external_connection_export        (LEDR),
+        .pio_out_ledr_external_connection_export        (ledr_export),
         .pio_in_key_external_connection_export          (KEY),
         .pio_in_sw_external_connection_export           (SW),
         .pio_in_keyboard_data_external_connection_export (keyboard_data_export),
@@ -131,7 +142,8 @@ module top (
         .spi_sdcard_external_MISO                       (sd_miso),
         .spi_sdcard_external_MOSI                       (sd_mosi),
         .spi_sdcard_external_SCLK                       (sd_sclk),
-        .spi_sdcard_external_SS_n                       (sd_ss_n)
+        .spi_sdcard_external_SS_n                       (sd_ss_n),
+        .pio_out_ledr_flag_external_connection_export   (ledr_flag_export)
     );
 
 endmodule

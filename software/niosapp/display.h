@@ -11,6 +11,22 @@ typedef enum {
     DISPLAY_LEDG_DIRTY = 7
 } DisplayLedgIndicator;
 
+/*
+ * Bit contract for the Qsys pio_out_ledr_flag PIO.
+ *
+ * Bit 0 selects the LEDR source: 1 = Nios PIO_OUT_LEDR, 0 = Verilog effect.
+ * Bits 1..4 request Verilog effects. If multiple effect bits are set,
+ * hardware priority is error blink, confirm blink, right-to-left marquee,
+ * then left-to-right marquee. Reserved bits must be written as 0.
+ */
+typedef enum {
+    DISPLAY_LEDR_FLAG_NIOS_CONTROL       = 0x01u,
+    DISPLAY_LEDR_FLAG_MARQUEE_LEFT_RIGHT = 0x02u,
+    DISPLAY_LEDR_FLAG_MARQUEE_RIGHT_LEFT = 0x04u,
+    DISPLAY_LEDR_FLAG_CONFIRM_BLINK      = 0x08u,
+    DISPLAY_LEDR_FLAG_ERROR_BLINK        = 0x10u
+} DisplayLedrFlag;
+
 /**
  * Initialize LCD and clear all display PIO outputs.
  */

@@ -43,6 +43,26 @@ static void display_write_hex(unsigned int base, unsigned char value)
     IOWR_ALTERA_AVALON_PIO_DATA(base, value);
 }
 
+static void display_write_ledr_flag(unsigned char flag)
+{
+#ifdef PIO_OUT_LEDR_FLAG_BASE
+    IOWR_ALTERA_AVALON_PIO_DATA(PIO_OUT_LEDR_FLAG_BASE, flag);
+#else
+    (void)flag;
+#endif
+}
+
+static void display_select_nios_ledr(void)
+{
+    display_write_ledr_flag(DISPLAY_LEDR_FLAG_NIOS_CONTROL);
+}
+
+static void display_write_ledr(unsigned int value)
+{
+    IOWR_ALTERA_AVALON_PIO_DATA(PIO_OUT_LEDR_BASE, value);
+    display_select_nios_ledr();
+}
+
 /**
  * Write an 8-bit value as two hexadecimal digits on a high/low HEX pair.
  */
@@ -167,8 +187,7 @@ void display_clear_ledg(void)
  */
 void display_show_progress_percent(unsigned int percent)
 {
-    IOWR_ALTERA_AVALON_PIO_DATA(PIO_OUT_LEDR_BASE,
-                                display_progress_mask_from_percent(percent));
+    display_write_ledr(display_progress_mask_from_percent(percent));
 }
 
 /**
@@ -184,7 +203,7 @@ void display_init(void)
     display_write_hex(PIO_OUT_HEX5_BASE, seven_seg_blank());
     display_write_hex(PIO_OUT_HEX6_BASE, seven_seg_blank());
     display_write_hex(PIO_OUT_HEX7_BASE, seven_seg_blank());
-    IOWR_ALTERA_AVALON_PIO_DATA(PIO_OUT_LEDR_BASE, 0);
+    display_write_ledr(0);
     display_clear_ledg();
     display_lcd_view_start = 0;
     display_marker_blink_tick = 0;
@@ -517,7 +536,7 @@ void display_show_menu_item(const char *option_name,
     }
     display_build_menu_counter(selected_index, option_count, row);
 
-    IOWR_ALTERA_AVALON_PIO_DATA(PIO_OUT_LEDR_BASE, 0);
+    display_write_ledr(0);
     display_clear_ledg();
     lcd_write_line(0, option_name, display_text_length(option_name, LCD_WIDTH));
     lcd_write_line(1, row, LCD_WIDTH);
@@ -529,6 +548,7 @@ void display_show_menu_item(const char *option_name,
  */
 void display_show_message(const char *line0, const char *line1)
 {
+    display_write_ledr(0);
     lcd_write_line(0, line0, display_text_length(line0, LCD_WIDTH));
     lcd_write_line(1, line1, display_text_length(line1, LCD_WIDTH));
     lcd_hide_cursor();
@@ -544,6 +564,7 @@ void display_show_text_page(const char *text,
     char row[LCD_WIDTH];
     unsigned int pos;
 
+    display_write_ledr(0);
     pos = display_skip_text_lines(text, length, first_line);
     if (length == 0u) {
         lcd_write_line(0, "(empty)", 7);
@@ -564,10 +585,15 @@ void display_show_text_page(const char *text,
  */
 void display_show_activity_marquee(unsigned int tick)
 {
+#ifdef PIO_OUT_LEDR_FLAG_BASE
+    (void)tick;
+    display_write_ledr_flag(DISPLAY_LEDR_FLAG_MARQUEE_LEFT_RIGHT);
+#else
     unsigned int led_index;
 
     led_index = 17u - (tick % LEDR_ACTIVITY_LED_COUNT);
-    IOWR_ALTERA_AVALON_PIO_DATA(PIO_OUT_LEDR_BASE, 1u << led_index);
+    display_write_ledr(1u << led_index);
+#endif
 }
 
 /**

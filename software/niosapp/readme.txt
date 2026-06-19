@@ -49,8 +49,10 @@ OUTPUTS:
 - HEX1..HEX0: current ASCII input, hexadecimal.
 - LEDR: current line progress from LEDR17 toward LEDR0; LEDR0 only lights on
   the final document line. During blocking EEPROM reads/writes or SD reads,
-  LEDR17..LEDR1 temporarily show a single-LED marquee as an activity effect,
-  not as a progress value.
+  pio_out_ledr_flag can hand LEDR to the Verilog effect controller for a
+  single-LED activity marquee. This is not a progress value. If the BSP has
+  not been regenerated with PIO_OUT_LEDR_FLAG_BASE, display.c falls back to
+  the older software-driven marquee.
 - LEDG0: insert mode.
 - LEDG1: navigation mode.
 - LEDG5: EEPROM error.
@@ -65,7 +67,8 @@ SOURCE FILES:
 - key.c/.h: active-low key debounce and edge detection.
 - display.c/.h, lcd.c/.h, seven_seg.c/.h: board display output.
   display.c centralizes LEDR progress, activity marquee, blinking marker, and
-  LEDG indicator ownership.
+  LEDG indicator ownership. display.h also defines the pio_out_ledr_flag bit
+  masks used by the Verilog LEDR effect controller.
 - eeprom.c/.h: 24LC32-compatible I2C EEPROM load/save.
 - sdcard.c/.h: SD card SPI-mode initialization and read-only FAT16/FAT32 root
   directory lookup for QUESTION.TXT, with activity callback support while the
@@ -86,3 +89,4 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 
 When Qsys changes, regenerate software/niosapp_bsp before building the app.
 The SD test requires SPI_SDCARD_BASE in software/niosapp_bsp/system.h.
+The hardware LEDR effect path requires PIO_OUT_LEDR_FLAG_BASE in system.h.

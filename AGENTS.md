@@ -18,7 +18,7 @@
 - LCD 第一列顯示目前編輯行，第二列顯示下一行；若目前已是最後一行，第二列以接近 LCD 內建游標的頻率閃爍顯示 `------END-------` 標記，避免與真實文字混淆。
 - HEX 以十進位顯示目前行號、游標位置、總行數；`HEX1~HEX0` 以十六進位顯示目前 ASCII。
 - LEDR 平時顯示目前行在文件總行數中的位置，從 `LEDR17` 往 `LEDR0` 亮；只有目前行是最後一行時 `LEDR0` 才亮。
-- editor 選單確認 `Save to ROM` 且實際寫入 EEPROM 期間，LEDR 暫時改為 `LEDR17..LEDR1` 單燈跑馬燈；這只是儲存中視覺效果，不代表儲存進度。
+- editor 選單確認 `Save to ROM` 且實際寫入 EEPROM 期間，LEDR 暫時改為 Verilog 控制的單燈跑馬燈；這只是儲存中視覺效果，不代表儲存進度。
 - LEDG 顯示模式、目前 LCD 視窗右側是否還有未顯示內容、unsaved 狀態。
 - 文件先存在 C 程式的 Document Buffer，後續寫入 DE2-115 板上 24LC32 類 EEPROM。
 - PS/2 鍵盤由 Verilog 接收 scan code 並轉成 ASCII / editor control byte，透過 Qsys PIO FIFO 介面交給 Nios II C 程式，原本 SW/KEY 測試輸入仍保留。
@@ -39,6 +39,7 @@
 - 目前 C 程式：`software/niosapp/` 內的模組化 Nios II C editor app。
 - 目前 PS/2 Verilog 模組在專案根目錄：`ps2_keyboard_controller.v`、`ps2_receiver.v`、`ps2_scancode_parser.v`、`ps2_ascii_mapper.v`、`keyboard_fifo.v`、`keyboard_pio_interface.v`。
 - 目前 Qsys 已有 `spi_sdcard` Avalon SPI master，並已匯出到 `qsys_verilog_example.v` / `nios/synthesis/nios.v` 的 `spi_sdcard_external_*` ports。
+- 目前 Qsys 已有 `pio_out_ledr_flag` 8-bit output PIO，預計匯出為 `pio_out_ledr_flag_external_connection_export`，給 Verilog LEDR effect controller 使用。
 - 最近 Quartus flow 報告顯示成功，輸出 bitstream 在 `output_files/EP4.sof`
 - 最近 Nios app-only build 成功，輸出程式為 `software/niosapp/niosapp.elf`。
 
@@ -75,6 +76,7 @@
 - `context/03EEPROM/24LC32.pdf`：EEPROM datasheet。
 - `context/04LCD_DEMO/`：LCD datasheet 與 Verilog demo。
 - `UI.md`：目前 Nios C UI 層的維護性說明，包含 `display.c/.h` 的共用 API、LEDR/LEDG/LCD/HEX 顯示約定與新增 UI 功能時的做法。
+- `docs/ledr_flag.md`：`pio_out_ledr_flag` bit 定義、Verilog priority、C/BSP fallback 與 `top.v` 接線說明。
 - `hw20_CpuExample/`：CPU + PIO + Eclipse app 範例，可參考 Nios 建置流程。
 - `hw21_LcdMenu/hw21/`：LCD、EEPROM、key pulse、seven-seg 等更接近本專題的 Verilog 範例。
 - `software/niosapp/`：目前應優先修改的 Nios II C application。
@@ -100,6 +102,7 @@
 - EEPROM PIO：SCL out、SDA out、SDA output-enable、SDA in
 - PS/2 keyboard PIO：keyboard data in 8 bit、keyboard status in 8 bit、keyboard ack out 1 bit
 - SD card SPI master：`spi_sdcard`，匯出 MISO / MOSI / SCLK / SS_n
+- LEDR flag output PIO：`pio_out_ledr_flag`，8 bit，匯出到 Verilog LEDR effect controller
 
 在 C 裡請使用 `software/niosapp_bsp/system.h` 實際產生的 macro 名稱，不要憑計畫文件猜 base name。此專案目前常用名稱是：
 
@@ -109,6 +112,7 @@
 - `PIO_IN_SW_BASE`
 - `PIO_IN_KEY_BASE`
 - `PIO_OUT_LEDR_BASE`
+- `PIO_OUT_LEDR_FLAG_BASE`
 - `PIO_OUT_LEDG_BASE`
 - `PIO_OUT_HEX0_BASE` ... `PIO_OUT_HEX7_BASE`
 - `PIO_OUT_LCD_DATA_BASE`
@@ -133,7 +137,8 @@
 - `SD_CLK` / `SD_CMD` / `SD_DAT[3:0]` 接 Qsys `spi_sdcard_external_*`，目前用 SD SPI mode：`SCLK -> SD_CLK`、`MOSI -> SD_CMD`、`MISO <- SD_DAT[0]`、`SS_n -> SD_DAT[3]`，`SD_DAT[1]` / `SD_DAT[2]` 先 release high-Z，`SD_WP_N` 只保留為 top-level input。
 - `SW[17:0]` 全部輸入 Nios PIO；C 端使用 `SW17` 作為移動模式、`SW16` 作為 Insert / Overwrite、`SW[6:0]` 作為 ASCII。
 - `KEY[3:0]` 全部輸入 Nios PIO。
-- `LEDR[17:0]`、`LEDG[7:0]` 由 PIO 輸出。
+- `LEDR[17:0]` 由 `ledr_flag_controller.v` 輸出；`pio_out_ledr_flag` bit0 為 `1` 時選擇 Nios `PIO_OUT_LEDR`，bit0 為 `0` 時由 Verilog 燈效控制。`LEDG[7:0]` 仍由 PIO 直接輸出。
+- `pio_out_ledr_flag` 定義請同步參考 `docs/ledr_flag.md` 與 `software/niosapp/display.h`；目前 bit0 為 Nios/Verilog source select，bit1 為 `LEDR17` 到 `LEDR0` 跑馬燈，bit2 為反向跑馬燈，bit3 為 2 Hz 全燈閃爍，bit4 為 5 Hz 全燈閃爍，bit5..7 保留。
 - HEX PIO 是 8 bit，但 `top.v` 只接 `hex*_export[6:0]` 到 `HEX*`，bit 7 可當小數點保留位或忽略。
 - LCD ctrl bit mapping：
   - bit 0：`LCD_RS`
@@ -376,4 +381,5 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - `UART_RXD` / `UART_TXD` 目前不是 Nios UART；除錯先用 JTAG UART。
 - `SW[15]` 是 reset；`SW[16]` 是 Insert / Overwrite；文字編輯器也使用 `SW[17]` 和 `SW[6:0]`。
 - Qsys 新增或重新排序 PIO 後一定要更新 BSP；只重新 Generate HDL 不會更新 `software/niosapp_bsp/system.h`。
+- 新增 `pio_out_ledr_flag` 後需重新 Generate HDL 並更新 BSP；否則 `top.v` 會找不到新的 Qsys wrapper port，或 C 端沒有 `PIO_OUT_LEDR_FLAG_BASE` 而只能使用 fallback 軟體跑馬燈。
 - 若 SD 測試只顯示 `Update BSP first`，代表 C app 是用尚未包含 `SPI_SDCARD_BASE` 的舊 BSP 編出來；先更新 `software/niosapp_bsp` 再 build app。
