@@ -48,7 +48,7 @@ EEPROM 儲存
 | `HEX5~HEX4`  | 字元位置                  | 以十進位顯示目前游標在行內的位置              |
 | `HEX3~HEX2`  | 總行數                   | 以十進位顯示目前文件總行數                 |
 | `HEX1~HEX0`  | 目前 ASCII 值            | 可顯示目前 `SW[6:0]` 的 ASCII 十六進位值 |
-| `LEDR[17:0]` | 目前行進度條 / EEPROM activity | 平時依目前行 / 文件總行數，從 `LEDR17` 往 `LEDR0` 亮；最後一行才亮 `LEDR0`。EEPROM 讀寫期間暫時使用 `LEDR17..LEDR1` 單燈跑馬燈 |
+| `LEDR[17:0]` | 目前行進度條 / blocking activity | 平時依目前行 / 文件總行數，從 `LEDR17` 往 `LEDR0` 亮；最後一行才亮 `LEDR0`。EEPROM 讀寫與 SD 讀取期間暫時使用 `LEDR17..LEDR1` 單燈跑馬燈 |
 | `LEDG0`      | Insert / Overwrite 狀態 | 反映 `SW16`，`0`：Overwrite，`1`：Insert |
 | `LEDG1`      | 移動模式狀態                | `0`：左右，`1`：上下                 |
 | `LEDG5`      | EEPROM error          | EEPROM 讀取或存檔失敗                 |
@@ -290,7 +290,7 @@ EEPROM 用來保存文件內容，使 reset 或斷電後仍可恢復資料。
 ```text
 內容修改後只設定 dirty_flag
 按下 KEY0 開啟 editor 選單，確認 Save to ROM 時才寫入 EEPROM
-EEPROM 讀取或寫入期間以 LEDR17..LEDR1 顯示單燈跑馬燈；這只是 blocking activity 視覺效果，不代表讀寫進度
+EEPROM 讀取、寫入或 SD 讀取期間以 LEDR17..LEDR1 顯示單燈跑馬燈；這只是 blocking activity 視覺效果，不代表讀寫進度
 存檔成功後清除 dirty_flag
 若 dirty_flag = 0，Save to ROM 可略過實際 EEPROM 寫入
 ```
@@ -329,7 +329,7 @@ LCD cursor 會放在 `document[current_line][cursor_col]` 的位置。Insert 模
 
 | LED          | 顯示內容               |
 | ------------ | ------------------ |
-| `LEDR[17:0]` | 平時顯示目前行 / 文件總行數進度，從 LEDR17 亮到 LEDR0；EEPROM 讀寫時暫時以 LEDR17..LEDR1 顯示跑馬燈 |
+| `LEDR[17:0]` | 平時顯示目前行 / 文件總行數進度，從 LEDR17 亮到 LEDR0；EEPROM 讀寫與 SD 讀取時暫時以 LEDR17..LEDR1 顯示跑馬燈 |
 | `LEDG0`      | Insert / Overwrite |
 | `LEDG1`      | 左右 / 上下移動          |
 | `LEDG5`      | EEPROM error       |

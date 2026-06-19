@@ -13,6 +13,8 @@ typedef enum {
     SDCARD_FILE_NOT_FOUND
 } SdCardResult;
 
+typedef void (*SdCardActivityCallback)(unsigned int tick, void *context);
+
 /**
  * Read QUESTION.TXT from a FAT16/FAT32 SD card through the Qsys SPI core.
  *
@@ -22,6 +24,18 @@ typedef enum {
 SdCardResult sdcard_read_question_text(char *buffer,
                                        unsigned int buffer_size,
                                        unsigned int *length);
+
+/**
+ * Read QUESTION.TXT and report blocking activity through a UI callback.
+ *
+ * The activity tick is an animation counter only, not a read-progress value.
+ */
+SdCardResult sdcard_read_question_text_with_activity(
+    char *buffer,
+    unsigned int buffer_size,
+    unsigned int *length,
+    SdCardActivityCallback activity,
+    void *activity_context);
 
 /**
  * Return a short LCD-friendly status string for an SD card result.

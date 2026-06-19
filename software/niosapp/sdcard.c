@@ -57,6 +57,31 @@ typedef struct {
 static unsigned char sd_sector[SD_BLOCK_SIZE];
 static int sd_spi_error = 0;
 static int sd_block_addressed = 0;
+static SdCardActivityCallback sd_activity = 0;
+static void *sd_activity_context = 0;
+static unsigned int sd_activity_tick = 0;
+
+static void sd_report_activity(void)
+{
+    if (sd_activity != 0) {
+        sd_activity(sd_activity_tick, sd_activity_context);
+        ++sd_activity_tick;
+    }
+}
+
+static void sd_set_activity(SdCardActivityCallback activity, void *context)
+{
+    sd_activity = activity;
+    sd_activity_context = context;
+    sd_activity_tick = 0u;
+}
+
+static void sd_clear_activity(void)
+{
+    sd_activity = 0;
+    sd_activity_context = 0;
+    sd_activity_tick = 0u;
+}
 
 static unsigned int le16(const unsigned char *p)
 {
@@ -194,6 +219,7 @@ static int sd_wait_ready(int high_capacity_request)
 
     acmd41_arg = high_capacity_request ? 0x40000000u : 0u;
     for (i = 0; i < SD_INIT_RETRIES; ++i) {
+        sd_report_activity();
         r1 = sd_send_command(SD_CMD_APP_CMD, 0u, 0xFFu);
         sd_spi_deselect();
         if ((r1 & 0xFEu) != 0u) {
@@ -229,6 +255,7 @@ static int sd_init(void)
 
     r1 = sd_send_command(SD_CMD_GO_IDLE_STATE, 0u, 0x95u);
     sd_spi_deselect();
+    sd_report_activity();
     if (r1 != 0x01u || sd_spi_error) {
         return 0;
     }
@@ -277,6 +304,7 @@ static int sd_read_sector(unsigned int lba, unsigned char *buffer)
     unsigned char r1;
     unsigned char token;
 
+    sd_report_activity();
     address = sd_block_addressed ? lba : (lba * SD_BLOCK_SIZE);
     r1 = sd_send_command(SD_CMD_READ_SINGLE_BLOCK, address, 0xFFu);
     if (r1 != 0u || sd_spi_error) {
@@ -671,9 +699,12 @@ const char *sdcard_result_text(SdCardResult result)
     }
 }
 
-SdCardResult sdcard_read_question_text(char *buffer,
-                                       unsigned int buffer_size,
-                                       unsigned int *length)
+SdCardResult sdcard_read_question_text_with_activity(
+    char *buffer,
+    unsigned int buffer_size,
+    unsigned int *length,
+    SdCardActivityCallback activity,
+    void *activity_context)
 {
 #if defined(SPI_SDCARD_BASE)
     FatInfo fs;
@@ -688,21 +719,29 @@ SdCardResult sdcard_read_question_text(char *buffer,
     }
     buffer[0] = '\0';
 
+    sd_set_activity(activity, activity_context);
+    sd_report_activity();
+
     if (!sd_init()) {
+        sd_clear_activity();
         return SDCARD_INIT_FAILED;
     }
 
     result = fat_mount(&fs);
     if (result != SDCARD_OK) {
+        sd_clear_activity();
         return result;
     }
 
     result = fat_find_question(&fs, &file);
     if (result != SDCARD_OK) {
+        sd_clear_activity();
         return result;
     }
 
-    return fat_read_file(&fs, &file, buffer, buffer_size, length);
+    result = fat_read_file(&fs, &file, buffer, buffer_size, length);
+    sd_clear_activity();
+    return result;
 #else
     if (length != 0) {
         *length = 0u;
@@ -710,6 +749,20 @@ SdCardResult sdcard_read_question_text(char *buffer,
     if (buffer != 0 && buffer_size > 0u) {
         buffer[0] = '\0';
     }
+    if (activity != 0) {
+        activity(0u, activity_context);
+    }
     return SDCARD_NO_SPI;
 #endif
+}
+
+SdCardResult sdcard_read_question_text(char *buffer,
+                                       unsigned int buffer_size,
+                                       unsigned int *length)
+{
+    return sdcard_read_question_text_with_activity(buffer,
+                                                  buffer_size,
+                                                  length,
+                                                  0,
+                                                  0);
 }

@@ -47,12 +47,12 @@
 - `main.c`：開機選單與主迴圈狀態切換；開機時提供選項列表給 `menu.c`，確認後進入 EEPROM/editor 或 SD `QUESTION.TXT` 讀取測試畫面；editor 內 `KEY0` 進入 editor 選單，`KEY1` 寫入，`KEY2/KEY3` 移動。
 - `editor.c/.h`：固定大小 `EditorDocument`、Insert / Overwrite、BS、LF、DEL、左右上下移動、清除目前行、清除全文、移到文件開頭/結尾、dirty flag、序列化 / 反序列化。
 - `menu.c/.h`：共用 LCD 選單狀態機；呼叫端只提供 null-terminated 選項列表，`KEY3` / `KEY2` 左右移動，`KEY0` 確認並回傳 option index。
-- `display.c/.h`：LEDR、LEDG、HEX、LCD 更新；HEX7~HEX2 使用十進位，HEX1~HEX0 顯示 ASCII 十六進位；LCD 以 16 欄 viewport 顯示目前行 / 下一行；最後一行的 END 標記會閃爍；共用選單畫面第一列顯示選項名稱，第二列用 `<` / `>` 與十進位 `目前/總數` 顯示位置；EEPROM 讀寫期間顯示 LEDR 跑馬燈。
+- `display.c/.h`：LEDR、LEDG、HEX、LCD 更新；HEX7~HEX2 使用十進位，HEX1~HEX0 顯示 ASCII 十六進位；LCD 以 16 欄 viewport 顯示目前行 / 下一行；最後一行的 END 標記會閃爍；共用選單畫面第一列顯示選項名稱，第二列用 `<` / `>` 與十進位 `目前/總數` 顯示位置；EEPROM 讀寫與 SD 讀取期間顯示 LEDR 跑馬燈。
 - `lcd.c/.h`：LCD1602 8-bit PIO bit-bang、兩行文字更新、LCD 內建 cursor 模式切換。
 - `key.c/.h`：active-low KEY 讀取、簡單 debounce、pressed-edge 偵測。
 - `keyboard.c/.h`：讀取 Verilog PS/2 keyboard FIFO PIO，將 decoded byte 交回現有 editor action。
 - `eeprom.c/.h`：24LC32 類 I2C bit-bang、全文件 load/save、32-byte page write、ACK polling、讀寫中 activity callback。
-- `sdcard.c/.h`：透過 Qsys SPI core 做 SD card SPI mode 初始化、FAT16/FAT32 root directory 只讀尋找 `QUESTION.TXT`、讀出前 1023 bytes 給 LCD 測試畫面。
+- `sdcard.c/.h`：透過 Qsys SPI core 做 SD card SPI mode 初始化、FAT16/FAT32 root directory 只讀尋找 `QUESTION.TXT`、讀出前 1023 bytes 給 LCD 測試畫面，並提供 `sdcard_read_question_text_with_activity()` 讓 blocking 讀取可回報 activity callback。
 - `seven_seg.c/.h`：active-low HEX 編碼與 blank。
 
 重要差異：
@@ -264,7 +264,7 @@ DE2-115 板上 EEPROM 規劃以 24LC32 類 32 Kbit 裝置為準：
 
 目前 `eeprom.c` 會以 32-byte page write 儲存整份文件，並在每頁寫入後 ACK polling。內容修改後只設定 `dirty`，不自動寫 EEPROM；editor 選單確認 `Save to ROM` 且 dirty 時才寫入，成功後呼叫 `editor_mark_saved()` 清除 dirty，失敗則保留 dirty 並設定 EEPROM error 顯示。若 dirty 為 0，`Save to ROM` 會略過實際 EEPROM 寫入。
 
-`eeprom_load_document_with_activity()` / `eeprom_save_document_with_activity()` 的 callback 僅用於 EEPROM blocking 期間視覺效果，不代表讀寫進度。
+`eeprom_load_document_with_activity()` / `eeprom_save_document_with_activity()` 與 `sdcard_read_question_text_with_activity()` 的 callback 僅用於 blocking 期間視覺效果，不代表讀寫進度。
 
 ## 可重用 Verilog / 講義資源
 

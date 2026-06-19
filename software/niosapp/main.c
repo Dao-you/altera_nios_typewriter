@@ -63,12 +63,12 @@ static unsigned int app_read_switches(void)
 }
 
 /**
- * Advance the LEDR activity marquee while EEPROM blocks the main loop.
+ * Advance the LEDR activity marquee while a blocking load/save runs.
  *
  * The tick value is an activity animation counter only. It is intentionally
- * not shown as a storage-progress value.
+ * not shown as a storage or file-read progress value.
  */
-static void app_show_eeprom_activity(unsigned int tick, void *context)
+static void app_show_blocking_activity(unsigned int tick, void *context)
 {
     (void)context;
     display_show_activity_marquee(tick);
@@ -82,7 +82,9 @@ static int app_handle_save(EditorDocument *editor)
     if (!editor->dirty) {
         return 0;
     }
-    if (eeprom_save_document_with_activity(editor, app_show_eeprom_activity, 0)) {
+    if (eeprom_save_document_with_activity(editor,
+                                           app_show_blocking_activity,
+                                           0)) {
         editor_mark_saved(editor);
         printf("EEPROM save OK\n");
         return 0;
@@ -97,10 +99,10 @@ static int app_load_eeprom_document(EditorDocument *editor)
     int load_status;
 
     display_show_message("Loading EEPROM", "Please wait");
-    app_show_eeprom_activity(0, 0);
+    app_show_blocking_activity(0, 0);
     eeprom_init();
     load_status = eeprom_load_document_with_activity(editor,
-                                                     app_show_eeprom_activity,
+                                                     app_show_blocking_activity,
                                                      0);
     if (load_status == EEPROM_LOAD_OK) {
         printf("EEPROM document loaded\n");
@@ -178,10 +180,13 @@ static void app_display_sd_view(void)
 static void app_load_sd_question(void)
 {
     display_show_message("Reading SD", "QUESTION.TXT");
-    display_show_activity_marquee(0);
-    app_sd_status = sdcard_read_question_text(app_sd_text,
-                                              SDCARD_TEXT_BUFFER_SIZE,
-                                              &app_sd_text_length);
+    app_show_blocking_activity(0, 0);
+    app_sd_status = sdcard_read_question_text_with_activity(
+        app_sd_text,
+        SDCARD_TEXT_BUFFER_SIZE,
+        &app_sd_text_length,
+        app_show_blocking_activity,
+        0);
     app_sd_first_line = 0u;
     app_sd_line_count = app_count_text_lines(app_sd_text, app_sd_text_length);
     printf("SD QUESTION.TXT: %s, %u bytes\n",

@@ -48,7 +48,7 @@ OUTPUTS:
 - HEX3..HEX2: total line count, decimal.
 - HEX1..HEX0: current ASCII input, hexadecimal.
 - LEDR: current line progress from LEDR17 toward LEDR0; LEDR0 only lights on
-  the final document line. During blocking EEPROM reads or writes,
+  the final document line. During blocking EEPROM reads/writes or SD reads,
   LEDR17..LEDR1 temporarily show a single-LED marquee as an activity effect,
   not as a progress value.
 - LEDG0: insert mode.
@@ -68,7 +68,8 @@ SOURCE FILES:
   LEDG indicator ownership.
 - eeprom.c/.h: 24LC32-compatible I2C EEPROM load/save.
 - sdcard.c/.h: SD card SPI-mode initialization and read-only FAT16/FAT32 root
-  directory lookup for QUESTION.TXT.
+  directory lookup for QUESTION.TXT, with activity callback support while the
+  blocking read is running.
 
 DOCUMENT LIMITS:
 - 32 lines, up to 99 characters per line.
