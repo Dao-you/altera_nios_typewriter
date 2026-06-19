@@ -59,8 +59,8 @@ OUTPUTS:
   On later lines the marker scrolls away and the LCD returns to the normal
   current-line / next-line viewport. The viewport scrolls on long lines after
   the cursor crosses the third column or the third column from the right.
-  Insert mode uses the underline cursor; overwrite mode uses the blinking
-  block cursor.
+  Insert mode soft-blinks the underline cursor; overwrite mode uses the LCD
+  built-in blinking block cursor.
 - Modal messages: informational messages show "KEY0 OK" centered on row 2 and
   return on KEY0 with 2 Hz LEDR blinking. Confirmation messages show
   "KEY1YES KEY0NO" and use KEY1 for yes / KEY0 for no with 2 Hz LEDR blinking.

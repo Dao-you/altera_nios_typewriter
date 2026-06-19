@@ -23,8 +23,8 @@ void lcd_hide_cursor(void);
 
 /**
  * Select the LCD cursor style used after display refresh.
- * insert_mode=1 shows the non-blinking underline cursor; insert_mode=0 shows
- * the blinking block cursor for overwrite mode.
+ * insert_mode=1 soft-blinks the underline cursor; insert_mode=0 shows the
+ * LCD built-in blinking block cursor for overwrite mode.
  */
 void lcd_set_cursor_mode(int insert_mode);
 

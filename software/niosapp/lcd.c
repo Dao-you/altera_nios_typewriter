@@ -11,6 +11,10 @@
 #define LCD_IDLE_CTRL (LCD_ON_BIT | LCD_BLON_BIT)
 #define LCD_SHORT_DELAY_US 50
 #define LCD_LONG_DELAY_US 2000
+/* Called once per UI refresh; approximates the LCD cursor blink cadence. */
+#define LCD_SOFT_CURSOR_BLINK_TICKS 34u
+
+static unsigned int lcd_soft_cursor_blink_tick = 0;
 
 /**
  * Write the LCD control PIO.
@@ -131,19 +135,27 @@ void lcd_write_line(int row, const char *text, int length)
  */
 void lcd_hide_cursor(void)
 {
+    lcd_soft_cursor_blink_tick = 0;
     lcd_write_command(0x0C);
 }
 
 /**
  * Select the LCD cursor style used after display refresh.
- * insert_mode=1 shows the non-blinking underline cursor; insert_mode=0 shows
- * the blinking block cursor for overwrite mode.
+ * insert_mode=1 soft-blinks the underline cursor; insert_mode=0 shows the
+ * LCD built-in blinking block cursor for overwrite mode.
  */
 void lcd_set_cursor_mode(int insert_mode)
 {
+    int underline_visible;
+
     if (insert_mode) {
-        lcd_write_command(0x0E);
+        underline_visible =
+            ((lcd_soft_cursor_blink_tick / LCD_SOFT_CURSOR_BLINK_TICKS) &
+             0x01u) == 0u;
+        ++lcd_soft_cursor_blink_tick;
+        lcd_write_command(underline_visible ? 0x0E : 0x0C);
     } else {
+        lcd_soft_cursor_blink_tick = 0;
         lcd_write_command(0x0F);
     }
 }

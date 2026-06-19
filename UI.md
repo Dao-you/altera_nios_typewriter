@@ -24,7 +24,7 @@
 ### 畫面初始化與 editor 主畫面
 
 - `display_init()`：初始化 LCD，清空 HEX、LEDR、LEDG，重設 display 內部狀態。
-- `display_update(editor, ascii, nav_mode, eeprom_error)`：editor 主畫面預設入口。會更新 LEDR 文件位置、LEDG 狀態、HEX 數字、LCD 目前行/下一行與 cursor mode，並以 `END` 作為文件最後一行後方的 bottom marker。
+- `display_update(editor, ascii, nav_mode, eeprom_error)`：editor 主畫面預設入口。會更新 LEDR 文件位置、LEDG 狀態、HEX 數字、LCD 目前行/下一行與 cursor mode，並以 `END` 作為文件最後一行後方的 bottom marker。Insert 模式的底線 cursor 由 `lcd.c` 軟體閃爍；Overwrite 模式使用 LCD 內建整格閃爍 cursor。
 - `display_update_with_markers(editor, ascii, nav_mode, eeprom_error, top_marker, bottom_marker)`：editor viewport 的通用 marker 入口。`top_marker` 是文件第 0 行前方的閃爍 boundary marker；游標在第 0 行時第一列顯示 marker、第二列顯示第 0 行並放置 LCD cursor，游標離開第 0 行後 marker 會離開可視範圍。`bottom_marker` 是文件最後一行後方的閃爍 boundary marker，`END` 也由此機制顯示。
 
 ### LCD 狀態畫面

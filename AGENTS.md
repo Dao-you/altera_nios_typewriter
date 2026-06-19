@@ -225,7 +225,7 @@ LCD 常用重點：
 - 第一列 DDRAM address：`0x00` 到 `0x0F`，set DDRAM command 為 `0x80 | addr`。
 - 第二列 DDRAM address：`0x40` 到 `0x4F`，set DDRAM command 為 `0x80 | addr`。
 - 初始化可參考 `lcd_text_driver.v`：`0x38`、`0x38`、`0x38`、`0x0C`、`0x01`、`0x06`、`0x80`。
-- 目前 C 版用 LCD 內建 cursor 顯示編輯位置：Insert 模式使用 non-blinking underline cursor，Overwrite 模式使用 blinking block cursor。
+- 目前 C 版用 LCD cursor 顯示編輯位置：Insert 模式由 `lcd.c` 軟體切換底線 cursor 顯示 / 隱藏以近似閃爍，Overwrite 模式使用 LCD 內建 blinking block cursor。
 - 一般 editor viewport 第一列顯示目前行，第二列顯示下一行；長行會依游標位置水平捲動 16 欄 viewport。目前 EEPROM editor 會把 `EEPROM` 閃爍 marker 當成文件第 0 行前方的 boundary marker：游標在第 0 行時第一列顯示 marker、第二列顯示第 0 行且游標在第二列；游標在其他行時 marker 消失，畫面回到目前行/下一行 layout。
 - Editor command mode 第一列顯示 `:` 與目前 VI command buffer，LCD cursor 放在命令尾端；第二列顯示 `VI COMMAND` 與右箭頭，LEDR 使用 2 Hz 全燈閃爍。`KEY1` 可寫入目前 `SW[6:0]` ASCII，PS/2 可直接輸入 printable 字元，Backspace/Delete 刪除命令字元，Enter 或 `KEY0` 執行。
 - 若目前行是文件最後一行，第二列顯示 `------END-------`，並在顯示 / 空白之間以接近 LCD 內建游標的頻率閃爍，讓它不會被誤認為文件內容。此為 C 端依主迴圈 refresh tick 的頻率近似，並未讀回 LCD 內部 blink 相位。
@@ -365,7 +365,7 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - HEX active-low 顯示正確，未用位可 blank。
 - LEDG0/LEDG1/LEDG6/LEDG7 狀態符合計畫；LEDG6 只在目前 LCD 視窗右側仍有當前行文字未顯示時亮。
 - EEPROM editor 游標在第 0 行時，LCD 第一列顯示置中的閃爍 `-----EEPROM-----` marker，第二列顯示文件第 0 行；游標移到其他行後 marker 消失，畫面回到目前行/下一行 layout。
-- LCD 游標在目前編輯位置；EEPROM editor 第 0 行中游標位於第二列，其他行位於一般 editor layout 的目前行列，Insert 模式為底線游標，Overwrite 模式為整格閃爍游標。
+- LCD 游標在目前編輯位置；EEPROM editor 第 0 行中游標位於第二列，其他行位於一般 editor layout 的目前行列，Insert 模式為軟體閃爍底線游標，Overwrite 模式為 LCD 內建整格閃爍游標。
 - 一般訊息 / 確認訊息 / 錯誤訊息的第二列提示文字與 `KEY0` / `KEY1` 返回邏輯正確，且 LEDR 分別以 2 Hz / 5 Hz 全燈閃爍。
 - PS/2 鍵盤可輸入英文字母、數字、空白與常用標點；Shift/Caps Lock 會影響大小寫，Shift 會產生符號。
 - PS/2 Enter / Backspace / Delete 分別觸發 LF、BS、DEL；方向鍵觸發游標左、右、上、下移動。
