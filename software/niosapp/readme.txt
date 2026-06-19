@@ -48,9 +48,10 @@ OUTPUTS:
   column 1 for "<" when an option exists to the left, column 14 for ">" when
   an option exists to the right, and a centered decimal counter such as "1/2".
   Startup and editor menus share this layout. The editor menu has a VI command
-  page before the first option.
+  page before the first option, so its first option also shows "<".
 - VI command LCD: row 1 shows ":" followed by the command buffer and places
-  the LCD cursor after it. Row 2 shows "< VI COMMAND >".
+  the LCD cursor after it. Row 2 shows "VI COMMAND" with only the right menu
+  arrow.
 - LCD: the EEPROM editor treats the centered blinking "EEPROM" marker as a
   boundary before document line 0, matching the END marker at the document end.
   When the cursor is on line 0, row 1 shows the marker and row 2 shows line 0.
@@ -86,7 +87,8 @@ SOURCE FILES:
   confirmation, and error prompts, and the EEPROM-backed quit/restore actions.
 - menu.c/.h: shared LCD menu state machine. Callers provide an option list;
   KEY3/KEY2 move left/right and KEY0 returns the selected option index.
-  menu_update_with_left_edge() lets a caller attach a page before option 0.
+  menu_update_with_left_edge() lets a caller attach a page before option 0,
+  and keeps the left arrow visible on option 0.
 - editor.c/.h: document buffer and editing operations.
 - key.c/.h: active-low key debounce and edge detection.
 - display.c/.h, lcd.c/.h, seven_seg.c/.h: board display output.

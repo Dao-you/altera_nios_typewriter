@@ -30,8 +30,9 @@
 ### LCD 狀態畫面
 
 - `display_show_menu_item(option_name, selected_index, option_count)`：顯示共用水平選單目前選項。LCD 第一列顯示 `option_name`；第二列第二格在左側仍有選項時顯示 `<`，倒數第二格在右側仍有選項時顯示 `>`，中央顯示十進位 `目前/總數`，支援到 `99/99`。
+- `display_show_menu_item_with_left_edge(option_name, selected_index, option_count)`：顯示前方還有第 0 頁的水平選單；即使目前在第 1 頁，也會顯示左箭頭，提示 `KEY3` 可回到第 0 頁。
 - `display_show_message(line0, line1)`：顯示兩行固定狀態文字，並隱藏 cursor。
-- `display_show_vi_command(command)`：顯示 editor menu 的第 0 頁。第一列以 `:` 加上目前 command buffer，LCD cursor 放在命令尾端；第二列在 `<` / `>` 間顯示 `VI COMMAND`。
+- `display_show_vi_command(command)`：顯示 editor menu 的第 0 頁。第一列以 `:` 加上目前 command buffer，LCD cursor 放在命令尾端；第二列顯示 `VI COMMAND` 與右箭頭，提示 `KEY2` 可進入水平選單。
 - `display_show_info_message(message)`：第一列顯示訊息，第二列置中 `KEY0 OK`，等待呼叫端用 `KEY0` 返回，LEDR 使用 `pio_out_ledr_flag` 的 2 Hz 全燈閃爍。
 - `display_show_confirm_message(message)`：第一列顯示訊息，第二列顯示 `KEY1YES KEY0NO`，等待呼叫端用 `KEY1` 接受或 `KEY0` 取消，LEDR 使用 2 Hz 全燈閃爍。
 - `display_show_error_message(message)`：第一列顯示錯誤訊息，第二列置中 `KEY0 OK`，等待呼叫端用 `KEY0` 返回，LEDR 使用 5 Hz 全燈閃爍。
@@ -43,7 +44,7 @@
 
 - `menu_init(menu, options)`：從 null-terminated `const char *const options[]` 初始化選單，最多計入 99 個選項。
 - `menu_update(menu, keys)`：處理 `KEY3` 向左、`KEY2` 向右、`KEY0` 確認，並刷新 LCD；未確認時回傳 `MENU_NO_SELECTION`，確認時回傳 zero-based option index。
-- `menu_update_with_left_edge(menu, keys, callback, context)`：和 `menu_update()` 相同，但在第一個選項收到 `KEY3` 時呼叫 `callback(context)` 並交回呼叫端處理第 0 頁。
+- `menu_update_with_left_edge(menu, keys, callback, context)`：和 `menu_update()` 相同，但在第一個選項收到 `KEY3` 時呼叫 `callback(context)` 並交回呼叫端處理第 0 頁；顯示第 1 頁時會保留左箭頭，提示可回到第 0 頁。
 
 ### LEDR
 

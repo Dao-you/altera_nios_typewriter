@@ -62,6 +62,13 @@ void display_show_menu_item(const char *option_name,
                             unsigned char option_count);
 
 /**
+ * Show one option from a horizontal menu that has a page before option 0.
+ */
+void display_show_menu_item_with_left_edge(const char *option_name,
+                                           unsigned char selected_index,
+                                           unsigned char option_count);
+
+/**
  * Show a fixed two-line status message.
  */
 void display_show_message(const char *line0, const char *line1);
@@ -70,7 +77,7 @@ void display_show_message(const char *line0, const char *line1);
  * Show the editor menu command prompt.
  *
  * The first row starts with ':' and places the LCD cursor after the command.
- * The second row shows the VI COMMAND page label with menu-style arrows.
+ * The second row shows the VI COMMAND page label with a right menu arrow.
  */
 void display_show_vi_command(const char *command);
 

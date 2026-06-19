@@ -610,12 +610,10 @@ static void display_build_menu_counter(unsigned char selected_index,
     }
 }
 
-/**
- * Show one option from a horizontal menu.
- */
-void display_show_menu_item(const char *option_name,
-                            unsigned char selected_index,
-                            unsigned char option_count)
+static void display_show_menu_item_internal(const char *option_name,
+                                            unsigned char selected_index,
+                                            unsigned char option_count,
+                                            int has_left_edge)
 {
     char row[LCD_WIDTH];
     unsigned char i;
@@ -624,7 +622,7 @@ void display_show_menu_item(const char *option_name,
         row[i] = ' ';
     }
 
-    if (option_count > 0u && selected_index > 0u) {
+    if (option_count > 0u && (selected_index > 0u || has_left_edge != 0)) {
         row[DISPLAY_MENU_LEFT_COL] = '<';
     }
     if (option_count > 0u && selected_index + 1u < option_count) {
@@ -637,6 +635,32 @@ void display_show_menu_item(const char *option_name,
     lcd_write_line(0, option_name, display_text_length(option_name, LCD_WIDTH));
     lcd_write_line(1, row, LCD_WIDTH);
     lcd_hide_cursor();
+}
+
+/**
+ * Show one option from a horizontal menu.
+ */
+void display_show_menu_item(const char *option_name,
+                            unsigned char selected_index,
+                            unsigned char option_count)
+{
+    display_show_menu_item_internal(option_name,
+                                    selected_index,
+                                    option_count,
+                                    0);
+}
+
+/**
+ * Show one option from a horizontal menu with a page before option 0.
+ */
+void display_show_menu_item_with_left_edge(const char *option_name,
+                                           unsigned char selected_index,
+                                           unsigned char option_count)
+{
+    display_show_menu_item_internal(option_name,
+                                    selected_index,
+                                    option_count,
+                                    1);
 }
 
 /**
@@ -681,7 +705,6 @@ void display_show_vi_command(const char *command)
 
     label_length = display_marker_word_length(DISPLAY_VI_COMMAND_TEXT);
     label_start = (LCD_WIDTH - label_length) / 2u;
-    row1[DISPLAY_MENU_LEFT_COL] = '<';
     row1[DISPLAY_MENU_RIGHT_COL] = '>';
     for (i = 0; i < label_length; ++i) {
         row1[label_start + i] = DISPLAY_VI_COMMAND_TEXT[i];

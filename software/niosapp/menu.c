@@ -79,9 +79,15 @@ int menu_update_with_left_edge(MenuState *menu,
         confirmed = menu->selected_index;
     }
 
-    display_show_menu_item(menu_selected_name(menu),
-                           menu->selected_index,
-                           menu->option_count);
+    if (left_edge_callback != 0) {
+        display_show_menu_item_with_left_edge(menu_selected_name(menu),
+                                              menu->selected_index,
+                                              menu->option_count);
+    } else {
+        display_show_menu_item(menu_selected_name(menu),
+                               menu->selected_index,
+                               menu->option_count);
+    }
 
     return confirmed;
 }

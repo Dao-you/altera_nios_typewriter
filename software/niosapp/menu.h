@@ -33,7 +33,8 @@ int menu_update(MenuState *menu, const KeyState *keys);
 /**
  * Handle a menu and call left_edge_callback when KEY3 is pressed on the first
  * option. This lets callers attach a page before option 0 without duplicating
- * the normal menu navigation logic.
+ * the normal menu navigation logic. The first option keeps a left arrow visible
+ * to show that KEY3 returns to the attached page.
  */
 int menu_update_with_left_edge(MenuState *menu,
                                const KeyState *keys,
