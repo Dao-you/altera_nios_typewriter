@@ -124,9 +124,9 @@ int dirty_flag = 0;
 ```text
 1. 初始化系統
 2. 初始化 LCD / HEX / LED
-3. 顯示共用開機選單，`KEY3` / `KEY2` 左右切換，`KEY0` 確認
+3. 顯示共用開機選單，`KEY3` / `KEY2` 左右切換，`KEY1` 確認
 4. 若選擇 `EEPROM EDITOR`，從 EEPROM 讀取文件資料並載入 Document Buffer
-5. 若選擇 `SD QUESTION`，讀取 SD 卡根目錄 `QUESTION.TXT` 做題庫檢視
+5. 若選擇 `SD QUESTIONS`，讀取 SD 卡根目錄 `QUESTION.TXT` 做題庫檢視
 6. 若選擇 `SD EDITOR`，讀取 SD 卡根目錄 `EDITOR.TXT` 到 Document Buffer；若不存在則以空白文件開始
 7. 進入主迴圈
 8. 讀取 SW / KEY
@@ -154,7 +154,7 @@ int dirty_flag = 0;
 
 ### 6.3 共用選單 UI
 
-多選項 LCD 畫面使用共用 `menu.c / menu.h` 狀態機。外部流程只提供 null-terminated option list，例如開機選單的 `EEPROM EDITOR`、`SD QUESTION`、`SD EDITOR`、`TYPING GAME`，或 editor 選單的 `Save to ROM` / `Save as SD` / `Save as EEPROM`、`Clear this line`、`Clear All`、`Move to head`、`Move to end`；`menu_update()` 統一處理 `KEY3` 向左、`KEY2` 向右、`KEY0` 確認，並回傳 zero-based option index。
+多選項 LCD 畫面使用共用 `menu.c / menu.h` 狀態機。外部流程只提供 null-terminated option list，例如開機選單的 `EEPROM EDITOR`、`SD EDITOR`、`SD QUESTIONS`、`TYPING GAME`，或 editor 選單的 `Save to ROM` / `Save as SD` / `Save as EEPROM`、`Clear this line`、`Clear All`、`Move to head`、`Move to end`；`menu_update()` 統一處理 `KEY3` 向左、`KEY2` 向右、`KEY1` 確認，並回傳 zero-based option index。
 
 LCD 顯示規格：
 

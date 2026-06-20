@@ -8,8 +8,8 @@ INPUTS:
 - Startup menu:
   - KEY3: move to the previous option.
   - KEY2: move to the next option.
-  - KEY0: confirm the selected option.
-  - Options: EEPROM EDITOR, SD QUESTION, TYPING GAME.
+  - KEY1: confirm the selected option.
+  - Options: EEPROM EDITOR, SD EDITOR, SD QUESTIONS, TYPING GAME.
 - SW[6:0]: 7-bit ASCII input.
 - SW15: active-low Nios II reset, 0 = reset and 1 = run.
 - SW16: edit mode, 0 = overwrite and 1 = insert.
@@ -34,14 +34,16 @@ INPUTS:
 - Editor menu:
   - KEY3: move to the previous option.
   - KEY2: move to the next option.
-  - KEY0: confirm the selected option.
-  - Pressing KEY3 on Save to ROM returns to the VI command page.
-  - Options: Save to ROM, Quit, Restore whole, Clear this line, Clear All,
-    Move to head, Move to end, Cancel.
+  - KEY1: confirm the selected option.
+  - Pressing KEY3 on the first option returns to the VI command page.
+  - EEPROM editor options: Save to ROM, Save as SD, Quit, Restore whole,
+    Clear this line, Clear All, Move to head, Move to end, Cancel.
+  - SD editor options: Save, Save as EEPROM, Quit, Restore whole,
+    Clear this line, Clear All, Move to head, Move to end, Cancel.
 - SD view mode:
   - KEY1: retry reading QUESTION.TXT.
   - KEY2/KEY3: scroll down/up by one text line.
-  - KEY0: enter the EEPROM-backed text editor.
+  - KEY0: return to the startup menu.
 - Typing game:
   - Starts from the TYPING GAME startup-menu option.
   - First selects a question case mode through the shared menu: Capitalized,
@@ -68,7 +70,8 @@ INPUTS:
     existing 5 Hz error blink for two seconds while input remains editable.
   - After the final answer, the shared OK-message UI shows CPM with two
     decimal places and KEY0 OK.
-  - KEY0 opens the typing-game menu: Restart, Continue, Quit.
+  - KEY0 opens the typing-game menu: Restart, Continue, Quit. KEY1 confirms
+    the selected menu option.
 
 OUTPUTS:
 - Menu LCD: first row shows the selected option name. The second row uses
@@ -134,7 +137,7 @@ SOURCE FILES:
   confirmation, and error prompts, typing-game app states, and the
   EEPROM-backed quit/restore actions.
 - menu.c/.h: shared LCD menu state machine. Callers provide an option list;
-  KEY3/KEY2 move left/right and KEY0 returns the selected option index.
+  KEY3/KEY2 move left/right and KEY1 returns the selected option index.
   menu_update_with_left_edge() lets a caller attach a page before option 0,
   and keeps the left arrow visible on option 0.
 - editor.c/.h: document buffer and editing operations.

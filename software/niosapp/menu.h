@@ -23,9 +23,9 @@ typedef struct {
 void menu_init(MenuState *menu, const char *const options[]);
 
 /**
- * Handle KEY3/KEY2/KEY0 for the menu and redraw it.
+ * Handle KEY3/KEY2/KEY1 for the menu and redraw it.
  *
- * Returns the selected zero-based option index when KEY0 confirms, or
+ * Returns the selected zero-based option index when KEY1 confirms, or
  * MENU_NO_SELECTION when no confirmation occurred.
  */
 int menu_update(MenuState *menu, const KeyState *keys);

@@ -46,8 +46,8 @@ typedef enum {
 
 typedef enum {
     APP_MENU_EDITOR = 0,
-    APP_MENU_SD_QUESTION = 1,
-    APP_MENU_SD_EDITOR = 2,
+    APP_MENU_SD_EDITOR = 1,
+    APP_MENU_SD_QUESTION = 2,
     APP_MENU_TYPING_GAME = 3
 } AppMenuChoice;
 
@@ -117,8 +117,8 @@ static AppState app_modal_return_state = APP_STATE_EDITOR;
 static AppConfirmAction app_confirm_action = APP_CONFIRM_NONE;
 static const char *const app_start_menu_options[] = {
     "EEPROM EDITOR",
-    "SD QUESTION",
     "SD EDITOR",
+    "SD QUESTIONS",
     "TYPING GAME",
     0
 };
@@ -920,8 +920,7 @@ static void app_display_sd_view(void)
                                app_sd_text_length,
                                app_sd_first_line);
     } else {
-        display_show_message("SD QUESTION.TXT",
-                             sdcard_result_text(app_sd_status));
+        display_show_error_message(sdcard_result_text(app_sd_status));
     }
 }
 

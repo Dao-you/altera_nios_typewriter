@@ -74,7 +74,7 @@ int menu_update_with_left_edge(MenuState *menu,
     }
 
     confirmed = MENU_NO_SELECTION;
-    if (keys != 0 && key_pressed_edge(keys, KEY_MASK_0) &&
+    if (keys != 0 && key_pressed_edge(keys, KEY_MASK_1) &&
         menu->option_count > 0u) {
         confirmed = menu->selected_index;
     }
