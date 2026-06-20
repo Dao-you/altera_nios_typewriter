@@ -157,7 +157,7 @@
 - EEPROM SDA 是 open-drain 類接法：只能 drive low 或 release high-Z，不能主動 drive high。
 - `UART_TXD` 目前固定為 `1'b1`，不要假設板上 UART 已接到 Nios。
 - `keyboard_status` bit 0 表示 FIFO 有資料，bit 1 表示 FIFO full，bit 2 表示 FIFO overflow/error；C 端讀完 `keyboard_data` 後 pulse `keyboard_ack` 取下一筆。
-- SD card `spi_sdcard` 目前只用 C 端輪詢讀寫，不使用 interrupt；`sdcard.c` 只支援 FAT16/FAT32 根目錄 8.3 短檔名，`QUESTION.TXT` 為讀取題庫/檢視用，`EDITOR.TXT` 為 SD editor 固定讀寫檔。
+- SD card `spi_sdcard` 目前只用 C 端輪詢讀寫，不使用 interrupt；`sdcard.c` 只支援 FAT16/FAT32 根目錄 8.3 短檔名，`QUESTION.TXT` 為讀取題庫/檢視用，`EDITOR.TXT` 為 SD editor 固定讀寫檔。`EDITOR.TXT` writer 會在覆寫既有檔案且 cluster chain 足夠時原地重用，只寫 file size 實際覆蓋的 sectors；建檔時 FAT32 會優先使用 FSInfo next-free hint，避免 16GB 等大卡從 FAT 開頭慢速掃描。
 
 ## C 程式開發約定
 

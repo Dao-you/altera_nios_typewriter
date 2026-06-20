@@ -55,6 +55,8 @@ typedef struct {
     unsigned int fat_lba;
     unsigned int root_dir_lba;
     unsigned int data_lba;
+    unsigned int fsinfo_lba;
+    unsigned int next_free_cluster;
     unsigned int sectors_per_fat;
     unsigned int root_dir_sectors;
     unsigned int root_cluster;
@@ -62,6 +64,7 @@ typedef struct {
     unsigned int cluster_count;
     unsigned char sectors_per_cluster;
     unsigned char fat_type;
+    unsigned char has_next_free;
 } FatInfo;
 
 typedef struct {
@@ -449,6 +452,19 @@ static int fat_boot_sector_is_valid(const unsigned char *sector)
     return 1;
 }
 
+static int fat_fsinfo_sector_is_valid(const unsigned char *sector)
+{
+    if (sector[510] != 0x55u || sector[511] != 0xAAu) {
+        return 0;
+    }
+    if (le32(&sector[0]) != 0x41615252u ||
+        le32(&sector[484]) != 0x61417272u) {
+        return 0;
+    }
+
+    return 1;
+}
+
 static SdCardResult fat_mount(FatInfo *fs)
 {
     unsigned int boot_lba;
@@ -460,6 +476,8 @@ static SdCardResult fat_mount(FatInfo *fs)
     unsigned int data_sectors;
     unsigned int cluster_count;
     unsigned int part_lba;
+    unsigned int fsinfo_sector;
+    unsigned int next_free_cluster;
 
     if (!sd_read_sector(0u, sd_sector)) {
         return SDCARD_READ_FAILED;
@@ -508,6 +526,10 @@ static SdCardResult fat_mount(FatInfo *fs)
     fs->root_dir_lba = fs->fat_lba + (fat_count * sectors_per_fat);
     fs->data_lba = fs->root_dir_lba + fs->root_dir_sectors;
     fs->root_cluster = le32(&sd_sector[44]);
+    fs->fsinfo_lba = 0u;
+    fs->next_free_cluster = 2u;
+    fs->has_next_free = 0;
+    fsinfo_sector = le16(&sd_sector[48]);
 
     data_sectors = total_sectors - reserved_sectors -
         (fat_count * sectors_per_fat) - fs->root_dir_sectors;
@@ -518,6 +540,17 @@ static SdCardResult fat_mount(FatInfo *fs)
         fs->data_lba = fs->fat_lba + (fat_count * sectors_per_fat);
         if (fs->root_cluster < 2u) {
             return SDCARD_UNSUPPORTED_FS;
+        }
+        if (fsinfo_sector != 0u &&
+            sd_read_sector(boot_lba + fsinfo_sector, sd_sector) &&
+            fat_fsinfo_sector_is_valid(sd_sector)) {
+            next_free_cluster = le32(&sd_sector[492]);
+            if (next_free_cluster >= 2u &&
+                next_free_cluster <= fs->cluster_count + 1u) {
+                fs->fsinfo_lba = boot_lba + fsinfo_sector;
+                fs->next_free_cluster = next_free_cluster;
+                fs->has_next_free = 1;
+            }
         }
     } else if (cluster_count >= 4085u) {
         fs->fat_type = FAT_TYPE_FAT16;
@@ -840,10 +873,14 @@ static int fat_allocate_clusters(const FatInfo *fs,
     unsigned int search_cluster;
     unsigned int cluster;
 
-    search_cluster = 2u;
+    search_cluster = fs->has_next_free ? fs->next_free_cluster : 2u;
     for (i = 0u; i < cluster_count; ++i) {
         if (!fat_find_free_cluster(fs, search_cluster, &cluster)) {
-            return 0;
+            if (i != 0u ||
+                search_cluster == 2u ||
+                !fat_find_free_cluster(fs, 2u, &cluster)) {
+                return 0;
+            }
         }
         clusters[i] = cluster;
         search_cluster = cluster + 1u;
@@ -900,6 +937,44 @@ static int fat_free_chain(const FatInfo *fs, unsigned int first_cluster)
     return 1;
 }
 
+static int fat_collect_chain_prefix(const FatInfo *fs,
+                                    unsigned int first_cluster,
+                                    unsigned int needed_clusters,
+                                    unsigned int *clusters)
+{
+    unsigned int cluster;
+    unsigned int next_cluster;
+    unsigned int count;
+    unsigned int guard;
+
+    if (needed_clusters == 0u) {
+        return 1;
+    }
+
+    cluster = first_cluster;
+    count = 0u;
+    guard = 0u;
+    while (cluster >= 2u &&
+           !fat_is_end_cluster(fs, cluster) &&
+           guard < SD_MAX_CLUSTER_CHAIN) {
+        clusters[count] = cluster;
+        ++count;
+        if (count >= needed_clusters) {
+            return 1;
+        }
+        if (!fat_read_fat_entry(fs, cluster, &next_cluster)) {
+            return 0;
+        }
+        if (next_cluster == 0u || fat_is_end_cluster(fs, next_cluster)) {
+            break;
+        }
+        cluster = next_cluster;
+        ++guard;
+    }
+
+    return 0;
+}
+
 static void fat_clear_sector(unsigned char *sector)
 {
     unsigned int i;
@@ -923,19 +998,23 @@ static int fat_write_file_data(const FatInfo *fs,
     unsigned int i;
 
     offset = 0u;
+    if (length == 0u) {
+        return 1;
+    }
+
     for (cluster_index = 0u;
-         cluster_index < cluster_count;
+         cluster_index < cluster_count && offset < length;
          ++cluster_index) {
-        for (sector = 0u; sector < fs->sectors_per_cluster; ++sector) {
+        for (sector = 0u;
+             sector < fs->sectors_per_cluster && offset < length;
+             ++sector) {
             fat_clear_sector(sd_sector);
-            if (offset < length) {
-                remaining = length - offset;
-                copy_bytes = min_u32(remaining, SD_BLOCK_SIZE);
-                for (i = 0u; i < copy_bytes; ++i) {
-                    sd_sector[i] = (unsigned char)buffer[offset + i];
-                }
-                offset += copy_bytes;
+            remaining = length - offset;
+            copy_bytes = min_u32(remaining, SD_BLOCK_SIZE);
+            for (i = 0u; i < copy_bytes; ++i) {
+                sd_sector[i] = (unsigned char)buffer[offset + i];
             }
+            offset += copy_bytes;
             if (!sd_write_sector(
                     fat_cluster_to_lba(fs, clusters[cluster_index]) + sector,
                     sd_sector)) {
@@ -989,6 +1068,7 @@ static SdCardResult fat_write_file(const FatInfo *fs,
     unsigned int first_cluster;
     unsigned int dir_lba;
     unsigned int dir_offset;
+    int use_existing_chain;
 
     free_slot.lba = 0u;
     free_slot.offset = 0u;
@@ -1013,25 +1093,37 @@ static SdCardResult fat_write_file(const FatInfo *fs,
     cluster_bytes = (unsigned int)fs->sectors_per_cluster * SD_BLOCK_SIZE;
     needed_clusters = 0u;
     first_cluster = 0u;
+    use_existing_chain = 0;
     if (length > 0u) {
         needed_clusters = (length + cluster_bytes - 1u) / cluster_bytes;
         if (needed_clusters == 0u ||
             needed_clusters > SD_MAX_WRITE_CLUSTERS) {
             return SDCARD_NO_SPACE;
         }
-        if (!fat_allocate_clusters(fs, needed_clusters, clusters)) {
-            return SDCARD_NO_SPACE;
-        }
-        if (!fat_link_clusters(fs, clusters, needed_clusters)) {
-            (void)fat_free_chain(fs, clusters[0]);
-            return SDCARD_WRITE_FAILED;
+        if (find_result == SDCARD_OK &&
+            existing.first_cluster >= 2u &&
+            fat_collect_chain_prefix(fs,
+                                     existing.first_cluster,
+                                     needed_clusters,
+                                     clusters)) {
+            use_existing_chain = 1;
+        } else {
+            if (!fat_allocate_clusters(fs, needed_clusters, clusters)) {
+                return SDCARD_NO_SPACE;
+            }
+            if (!fat_link_clusters(fs, clusters, needed_clusters)) {
+                (void)fat_free_chain(fs, clusters[0]);
+                return SDCARD_WRITE_FAILED;
+            }
         }
         if (!fat_write_file_data(fs,
                                  clusters,
                                  needed_clusters,
                                  buffer,
                                  length)) {
-            (void)fat_free_chain(fs, clusters[0]);
+            if (!use_existing_chain) {
+                (void)fat_free_chain(fs, clusters[0]);
+            }
             return SDCARD_WRITE_FAILED;
         }
         first_cluster = clusters[0];
@@ -1050,13 +1142,15 @@ static SdCardResult fat_write_file(const FatInfo *fs,
                                     dir_offset,
                                     first_cluster,
                                     length)) {
-        if (first_cluster >= 2u) {
+        if (first_cluster >= 2u && !use_existing_chain) {
             (void)fat_free_chain(fs, first_cluster);
         }
         return SDCARD_WRITE_FAILED;
     }
 
-    if (find_result == SDCARD_OK && existing.first_cluster >= 2u) {
+    if (find_result == SDCARD_OK &&
+        existing.first_cluster >= 2u &&
+        !use_existing_chain) {
         (void)fat_free_chain(fs, existing.first_cluster);
     }
 

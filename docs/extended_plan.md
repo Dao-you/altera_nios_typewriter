@@ -239,7 +239,7 @@ CMD17: Read Single Block
 6. 讀取檔案內容。
 7. 將文字資料放入 RAM buffer。
 8. 顯示第一行題目到 LCD，或載入共用 editor buffer。
-9. 針對 `EDITOR.TXT`，使用 CMD24 單 block 寫入、FAT entry 更新與 root directory entry 更新做簡化覆寫 / 建檔。
+9. 針對 `EDITOR.TXT`，使用 CMD24 單 block 寫入、FAT entry 更新與 root directory entry 更新做簡化覆寫 / 建檔；覆寫既有檔案時優先重用既有 cluster chain，只寫 file size 實際覆蓋的 sectors，建檔時 FAT32 優先使用 FSInfo next-free hint，避免 16GB 等大卡從 FAT 開頭慢速掃描。
 
 ---
 
