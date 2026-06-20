@@ -8,10 +8,10 @@
 
 主要功能規劃：
 
-- 開機後 LCD 先顯示共用選單：`KEY3` / `KEY2` 在選項間左右移動，`KEY0` 確認。目前選項為 `EEPROM EDITOR`、`SD QUESTION` 與 `TYPING GAME`。
+- 開機後 LCD 先顯示共用選單：`KEY3` / `KEY2` 在選項間左右移動，`KEY0` 確認。目前選項為 `EEPROM EDITOR`、`SD QUESTION`、`SD EDITOR` 與 `TYPING GAME`。
 - `SW[6:0]` 輸入 7-bit ASCII。
 - 進入文字編輯器後，`KEY1` 寫入目前 ASCII；若 ASCII 是 `0x08` 執行 BS 刪除左側字元，行頭時刪除上一行 LF 並合併行，`0x0A` 執行 LF 換行，`0x7F` 執行 DEL 刪除游標所在字元。
-- 進入文字編輯器後，`KEY0` 先開啟 editor command mode。第一列以 `:` 提供簡易 VI 指令輸入，第二列顯示 `VI COMMAND` 與右箭頭，LEDR 使用 2 Hz 全燈閃爍；`KEY2` 可從 command mode 進入水平 editor 選單。支援指令為空值返回、`w` 存檔、`q` 離開、`wq` / `x` 存檔後離開、`e!` 重新載入 EEPROM 內整份文件。水平選單選項為 `Save to ROM`、`Quit`、`Restore whole`、`Clear this line`、`Clear All`、`Move to head`、`Move to end`、`Cancel`；在第一個選項按 `KEY3` 會回到 command mode，且第 1 頁會顯示左箭頭提示可返回第 0 頁；選單頁面以 LEDR 顯示 `目前選項/選項總數` 進度條。
+- 進入文字編輯器後，`KEY0` 先開啟 editor command mode。第一列以 `:` 提供簡易 VI 指令輸入，第二列顯示 `VI COMMAND` 與右箭頭，LEDR 使用 2 Hz 全燈閃爍；`KEY2` 可從 command mode 進入水平 editor 選單。支援指令為空值返回、`w` 存到目前 editor 的 primary storage、`q` 離開、`wq` / `x` 存檔後離開、`e!` 從目前 editor 的 primary storage 重新載入整份文件。EEPROM editor 選單選項為 `Save to ROM`、`Save as SD`、`Quit`、`Restore whole`、`Clear this line`、`Clear All`、`Move to head`、`Move to end`、`Cancel`；SD editor 選單選項為 `Save`、`Save as EEPROM`、`Quit`、`Restore whole`、`Clear this line`、`Clear All`、`Move to head`、`Move to end`、`Cancel`。在第一個選項按 `KEY3` 會回到 command mode，且第 1 頁會顯示左箭頭提示可返回第 0 頁；選單頁面以 LEDR 顯示 `目前選項/選項總數` 進度條。
 - `SW16` 切換 Insert / Overwrite：`0` 為 Overwrite，`1` 為 Insert。
 - `SW17` 切換移動模式：左右 / 上下。
 - `KEY3` 往前 / 往上，`KEY2` 往後 / 往下。
@@ -22,7 +22,7 @@
 - LEDG 顯示模式、目前 LCD 視窗右側是否還有未顯示內容、unsaved 狀態。
 - 文件先存在 C 程式的 Document Buffer，後續寫入 DE2-115 板上 24LC32 類 EEPROM。
 - PS/2 鍵盤由 Verilog 接收 scan code 並轉成 ASCII / editor control byte，透過 Qsys PIO FIFO 介面交給 Nios II C 程式，原本 SW/KEY 測試輸入仍保留。
-- SD 卡先以 Qsys `altera_avalon_spi` SPI mode 做只讀測試；開機選單確認 `SD QUESTION` 會嘗試讀 FAT16/FAT32 根目錄短檔名 `QUESTION.TXT` 並在 LCD 顯示內容，`KEY0` 返回首頁選單，不實作 SD 寫入。
+- SD 卡以 Qsys `altera_avalon_spi` SPI mode 讀寫 FAT16/FAT32 根目錄短檔名。開機選單確認 `SD QUESTION` 會讀 `QUESTION.TXT` 並在 LCD 顯示內容，`KEY0` 返回首頁選單；開機選單確認 `SD EDITOR` 會載入固定短檔名 `EDITOR.TXT` 到 editor。EEPROM editor 的 `Save as SD` 也寫入 `EDITOR.TXT`，若檔案已存在會用既有 confirmation UI 顯示 `Overwrite SD?`，`KEY1` 確認覆寫、`KEY0` 取消。SD editor 的 `Save` 直接覆寫 `EDITOR.TXT`，`Save as EEPROM` 會先用 confirmation UI 顯示 `Overwrite ROM?`。
 - 打字速度遊戲從開機選單 `TYPING GAME` 進入。先用共用選單選題目大小寫模式：`Capitalized` 會將字母轉小寫後把第一個字母轉大寫，`Default` 保留題目原文，`Random Caps` 會將字母轉小寫後在 runtime 隨機把每個字母轉大寫；非字母不轉換，各選單最後都有 `Quit`。接著用共用選單選題目數量，5 題一級距、最多 50 題。選完後 LCD 提示關閉 `SW[6:0]`，`KEY1` 開始、`KEY0` 返回；開始時從 SD `QUESTION.TXT` 非空行隨機抽取所選題數，讀取期間使用 loading 燈號。遊戲中共用 editor 的 SW/KEY/PS/2 輸入派發，但答案限制為單行，完全輸入正確後自動進下一題；字數達到或超過題目長度但內容不符時，LEDR 顯示 2 秒既有 5 Hz error effect；`KEY0` 進入 `Restart` / `Continue` / `Quit` 暫停選單。LCD 第一列顯示輸入、第二列顯示題目；秒表使用 Qsys `timer` 作為 HAL system clock，從第一個 `SW[6:0]` 變化或第一個實際輸入動作開始。LEDR 顯示題數進度，LEDG7..LEDG0 保持 Insert / 移動模式 / overflow 等狀態燈，獨立 `LEDG8` 每秒閃爍作為 `mm:ss` 冒號；HEX7~HEX6 每四秒循環顯示三秒目前題號與一秒總題數，HEX5~HEX4 顯示分鐘，HEX3~HEX2 顯示秒數，HEX1~HEX0 顯示 `SW[6:0]` 十六進位。完成後以一般 UI 訊息顯示 `CPM n.nn` 與 `KEY0 OK`，按 `KEY0` 回首頁。
 
 ## 目前狀態
@@ -48,8 +48,8 @@
 
 目前 `software/niosapp/` 已實作：
 
-- `main.c`：開機選單與主迴圈狀態切換；開機時提供選項列表給 `menu.c`，確認後進入 EEPROM/editor、SD `QUESTION.TXT` 讀取測試畫面或打字遊戲；editor 內 `KEY0` 進入 `:VI COMMAND` command mode，再可用 `KEY2` 進入 editor 選單；`KEY1` 寫入，`KEY2/KEY3` 移動。
-- `editor.c/.h`：固定大小 `EditorDocument`、Insert / Overwrite、BS、LF、DEL、左右上下移動、清除目前行、清除全文、移到文件開頭/結尾、dirty flag、序列化 / 反序列化。
+- `main.c`：開機選單與主迴圈狀態切換；開機時提供選項列表給 `menu.c`，確認後進入 EEPROM editor、SD `QUESTION.TXT` 讀取測試畫面、SD `EDITOR.TXT` editor 或打字遊戲；editor 內 `KEY0` 進入 `:VI COMMAND` command mode，再可用 `KEY2` 進入 editor 選單；`KEY1` 寫入，`KEY2/KEY3` 移動。
+- `editor.c/.h`：固定大小 `EditorDocument`、Insert / Overwrite、BS、LF、DEL、左右上下移動、清除目前行、清除全文、移到文件開頭/結尾、dirty flag、EEPROM 固定格式序列化 / 反序列化，以及 SD editor 用 newline-delimited ASCII 匯入 / 匯出。
 - `editor_input.c/.h`：共用 SW/KEY 與 PS/2 decoded byte 到 `EditorDocument` 的派發；EEPROM editor 允許 LF，打字遊戲重用同一派發但禁用 LF。
 - `typing_game.c/.h`：打字遊戲題庫抽樣、大小寫模式轉換、單行答案比對、回合狀態、restart 與 Qsys timer 秒表狀態。
 - `menu.c/.h`：共用 LCD 選單狀態機；呼叫端只提供 null-terminated 選項列表，`KEY3` / `KEY2` 左右移動，`KEY0` 確認並回傳 option index；需要第 0 頁時可用 `menu_update_with_left_edge()` 在第一個選項按 `KEY3` 時回呼呼叫端，並讓第一個選項也顯示左箭頭提示可回第 0 頁。
@@ -58,7 +58,7 @@
 - `key.c/.h`：active-low KEY 讀取、簡單 debounce、pressed-edge 偵測。
 - `keyboard.c/.h`：讀取 Verilog PS/2 keyboard FIFO PIO，將 decoded byte 交回現有 editor action。
 - `eeprom.c/.h`：24LC32 類 I2C bit-bang、全文件 load/save、32-byte page write、ACK polling、讀寫中 activity callback。
-- `sdcard.c/.h`：透過 Qsys SPI core 做 SD card SPI mode 初始化、FAT16/FAT32 root directory 只讀尋找 `QUESTION.TXT`、讀出前 1023 bytes 給 LCD 測試畫面，並提供 `sdcard_read_question_text_with_activity()` 讓 blocking 讀取可回報 activity callback。
+- `sdcard.c/.h`：透過 Qsys SPI core 做 SD card SPI mode 初始化、FAT16/FAT32 root directory 讀取 `QUESTION.TXT` 給 LCD/打字遊戲，並讀寫固定 `EDITOR.TXT` 給 SD editor / EEPROM editor `Save as SD`。blocking SD 讀寫都透過 activity callback 顯示 LEDR activity marquee。
 - `seven_seg.c/.h`：active-low HEX 編碼與 blank。
 
 重要差異：
@@ -157,7 +157,7 @@
 - EEPROM SDA 是 open-drain 類接法：只能 drive low 或 release high-Z，不能主動 drive high。
 - `UART_TXD` 目前固定為 `1'b1`，不要假設板上 UART 已接到 Nios。
 - `keyboard_status` bit 0 表示 FIFO 有資料，bit 1 表示 FIFO full，bit 2 表示 FIFO overflow/error；C 端讀完 `keyboard_data` 後 pulse `keyboard_ack` 取下一筆。
-- SD card `spi_sdcard` 目前只用 C 端輪詢讀取，不使用 interrupt；`sdcard.c` 只實作 read-only bring-up，不寫入 FAT 或 SD block。
+- SD card `spi_sdcard` 目前只用 C 端輪詢讀寫，不使用 interrupt；`sdcard.c` 只支援 FAT16/FAT32 根目錄 8.3 短檔名，`QUESTION.TXT` 為讀取題庫/檢視用，`EDITOR.TXT` 為 SD editor 固定讀寫檔。
 
 ## C 程式開發約定
 
@@ -172,7 +172,7 @@
 - `key.c` / `key.h`：active-low KEY 反相、去彈跳、edge detection
 - `keyboard.c` / `keyboard.h`：PS/2 decoded byte PIO 讀取與 ack pulse
 - `eeprom.c` / `eeprom.h`：24LC32 bit-bang I2C 儲存/讀取
-- `sdcard.c` / `sdcard.h`：SD card SPI mode + FAT16/FAT32 `QUESTION.TXT` 只讀測試
+- `sdcard.c` / `sdcard.h`：SD card SPI mode + FAT16/FAT32 `QUESTION.TXT` 讀取與 `EDITOR.TXT` 讀寫
 - `seven_seg.c` / `seven_seg.h`：active-low 七段顯示編碼
 
 為了程式碼可維護性，UI 相關邏輯盡量寫成共用模組，不要在 `main.c` 或各功能模組裡散落直接控制 LEDR、LEDG、HEX、LCD 的程式。新增畫面、狀態燈、跑馬燈、進度條、閃爍訊息或 LCD 狀態文字時，優先擴充 `display.c/.h` 的共用函數，並同步更新根目錄 `UI.md`。`lcd.c/.h` 和 `seven_seg.c/.h` 是 display 層使用的底層 helper；除非正在修改驅動本身，一般功能流程不應直接操作它們或直接寫 display PIO。
@@ -279,7 +279,7 @@ DE2-115 板上 EEPROM 規劃以 24LC32 類 32 Kbit 裝置為準：
 3208..3209 additive checksum, little-endian
 ```
 
-目前 `eeprom.c` 會以 32-byte page write 儲存整份文件，並在每頁寫入後 ACK polling。內容修改後只設定 `dirty`，不自動寫 EEPROM；editor 選單確認 `Save to ROM` 且 dirty 時才寫入，成功後呼叫 `editor_mark_saved()` 清除 dirty，失敗則保留 dirty 並設定 EEPROM error 顯示。若 dirty 為 0，`Save to ROM` 會略過實際 EEPROM 寫入。
+目前 `eeprom.c` 會以 32-byte page write 儲存整份文件，並在每頁寫入後 ACK polling。內容修改後只設定 `dirty`，不自動寫 EEPROM；EEPROM editor 選單確認 `Save to ROM` 且 dirty 時才寫入，成功後呼叫 `editor_mark_saved()` 清除 dirty，失敗則保留 dirty 並設定 storage error 顯示。若 dirty 為 0，primary `Save` 會略過實際儲存。`Save as SD` / `Save as EEPROM` 是 secondary save，不清除目前 editor primary storage 的 dirty 狀態。
 
 `eeprom_load_document_with_activity()` / `eeprom_save_document_with_activity()` 與 `sdcard_read_question_text_with_activity()` 的 callback 僅用於 blocking 期間視覺效果，不代表讀寫進度。
 
@@ -361,19 +361,22 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - Eclipse app build 成功，`software/niosapp/niosapp.elf` 更新。
 - JTAG UART 可執行基本 `printf`。
 - 開機 LCD 顯示共用選單：第一列為目前選項名稱，第二列中央為十進位 `1/2` 類 counter；若左側仍有選項，第二列第二格顯示 `<`；若右側仍有選項，第二列倒數第二格顯示 `>`。
-- 開機選單按 `KEY3` / `KEY2` 可左右切換 `EEPROM EDITOR`、`SD QUESTION` 與 `TYPING GAME`，按 `KEY0` 確認。
+- 開機選單按 `KEY3` / `KEY2` 可左右切換 `EEPROM EDITOR`、`SD QUESTION`、`SD EDITOR` 與 `TYPING GAME`，按 `KEY0` 確認。
 - 開機選單確認 `EEPROM EDITOR` 進入原本 EEPROM/editor 流程，若 EEPROM 有有效文件會載入，否則空白文件開始。
 - 開機選單確認 `SD QUESTION` 會讀 SD 卡 FAT16/FAT32 根目錄短檔名 `QUESTION.TXT`；成功後 LCD 以兩列顯示內容，`KEY2/KEY3` 捲動，`KEY1` 可重新讀檔，`KEY0` 返回首頁選單。
-- 從 EEPROM editor、SD 題目檢視或打字遊戲返回首頁選單時，HEX0~HEX7 會由 `main.c` 的外層首頁 transition 統一清空，不保留功能畫面的行號、ASCII、題號或秒表狀態。
+- 開機選單確認 `SD EDITOR` 會讀 SD 卡 FAT16/FAT32 根目錄短檔名 `EDITOR.TXT`；若不存在則以空白文件開始並顯示 `No SD file`。SD editor 主畫面使用一般 editor 輸入、移動、command mode 與選單，top marker 為 `SD`。
+- 從 EEPROM editor、SD 題目檢視、SD editor 或打字遊戲返回首頁選單時，HEX0~HEX7 會由 `main.c` 的外層首頁 transition 統一清空，不保留功能畫面的行號、ASCII、題號或秒表狀態。
 - 開機選單確認 `TYPING GAME` 會先進大小寫模式選單：`Capitalized`、`Default`、`Random Caps`、`Quit`；再進題數選單：`5 Questions` 到 `50 Questions`，以 5 題為級距，最後一項 `Quit`。選完後顯示 `SW6-0 OFF` 與 `KEY1GO KEY0EXIT`；`SW[6:0]` 全關後按 `KEY1` 讀取 SD `QUESTION.TXT` 並隨機抽取所選題數，讀取期間 LEDR 使用 activity marquee。若題目不足所選題數，顯示錯誤訊息。
 - 打字遊戲中 LCD 第一列顯示輸入 viewport 與 cursor、第二列顯示題目 viewport；使用者可用 SW[6:0]+KEY1 或 PS/2 鍵盤輸入，Backspace/Delete 與左右移動可修正答案，LF/Enter 不會建立新行；答案完全相同後立即自動進入下一題。
 - 打字遊戲中秒表從第一個 `SW[6:0]` 變化或第一個實際輸入動作開始；LEDR 依目前題號顯示進度，LEDG7..LEDG0 保持 Insert / 移動模式 / overflow 等狀態燈，獨立 LEDG8 每秒閃爍作為冒號；HEX7~HEX6 每四秒循環顯示三秒目前題號與一秒總題數，HEX5~HEX4 顯示分鐘，HEX3~HEX2 顯示秒數，HEX1~HEX0 顯示 `SW[6:0]` 十六進位。
 - 打字遊戲中若輸入字數已達到或超過目前題目長度但內容不相符，LEDR 會暫時切到既有 5 Hz 錯誤閃爍 2 秒；使用者可繼續用 Backspace/Delete 或移動游標修正輸入。
 - 打字遊戲中按 `KEY0` 進入 `Restart` / `Continue` / `Quit` 選單；`Restart` 保留目前抽出的題目並歸零時間，`Continue` 回遊戲且不累加暫停期間時間，`Quit` 回首頁。
 - 打字遊戲完成後以一般 UI 訊息顯示 `CPM n.nn` 與置中的 `KEY0 OK`；CPM 由本輪所選題目總字元數與完成秒表計算並四捨五入到小數點後兩位，按 `KEY0` 回首頁。
-- editor 主畫面按 `KEY0` 進入 `:VI COMMAND` command mode；空指令返回 editor，`w` 存檔，`q` 離開，`wq` / `x` 存檔後離開，`e!` restore whole。若 dirty 時執行 `q`，會以確認訊息提示 `Quit no save?`。
-- command mode 按 `KEY2` 進入 editor 選單；選單可用 `KEY3` / `KEY2` 左右切換 `Save to ROM`、`Quit`、`Restore whole`、`Clear this line`、`Clear All`、`Move to head`、`Move to end`、`Cancel`，按 `KEY0` 確認；在 `Save to ROM` 按 `KEY3` 會回到 command mode。
-- editor 選單確認 `Quit` 時，若 dirty 會以確認訊息提示 `Quit no save?`；確認 `Restore whole` 會重新讀取 EEPROM 內整份文件；確認 `Cancel` 會直接返回 editor。確認 `Clear this line` 會清空目前行並將游標移到該行開頭；確認 `Clear All` 會重設成單一空白行；確認 `Move to head` / `Move to end` 只移動游標，不設定 dirty。
+- editor 主畫面按 `KEY0` 進入 `:VI COMMAND` command mode；空指令返回 editor，`w` 存到目前 editor 的 primary storage，`q` 離開，`wq` / `x` 存檔後離開，`e!` restore whole。若 dirty 時執行 `q`，會以確認訊息提示 `Quit no save?`。
+- command mode 按 `KEY2` 進入 editor 選單；EEPROM editor 選單可用 `KEY3` / `KEY2` 左右切換 `Save to ROM`、`Save as SD`、`Quit`、`Restore whole`、`Clear this line`、`Clear All`、`Move to head`、`Move to end`、`Cancel`，按 `KEY0` 確認；在 `Save to ROM` 按 `KEY3` 會回到 command mode。SD editor 選單第一項為 `Save`，第二項為 `Save as EEPROM`，其餘操作相同。
+- editor 選單確認 `Quit` 時，若 dirty 會以確認訊息提示 `Quit no save?`；確認 `Restore whole` 會從目前 editor 的 primary storage 重新讀取整份文件；確認 `Cancel` 會直接返回 editor。確認 `Clear this line` 會清空目前行並將游標移到該行開頭；確認 `Clear All` 會重設成單一空白行；確認 `Move to head` / `Move to end` 只移動游標，不設定 dirty。
+- EEPROM editor 選單確認 `Save as SD` 會寫入 SD 根目錄 `EDITOR.TXT`；如果檔案已存在，先顯示 `Overwrite SD?`，`KEY1` 確認覆寫、`KEY0` 取消。成功後顯示 `Saved to SD`，但不清除 EEPROM editor 對 EEPROM primary storage 的 dirty 狀態。
+- SD editor 選單確認 `Save` 會覆寫 SD 根目錄 `EDITOR.TXT` 並清除 dirty；確認 `Save as EEPROM` 會先顯示 `Overwrite ROM?`，`KEY1` 確認覆寫 EEPROM、`KEY0` 取消。成功後顯示 `Saved to EEPROM`，但不清除 SD editor 對 SD primary storage 的 dirty 狀態。
 - `SW[6:0]` 可讀出並在 HEX1~HEX0 顯示 ASCII hex。
 - `SW[6:0] = 0x08` 時 KEY1 執行 BS，且游標在行頭時會刪除上一行 LF 並合併行；`0x0A` 時 KEY1 執行 LF，`0x7F` 時 KEY1 執行 DEL。
 - `SW[15]` 為 reset：`0` reset，`1` run。
@@ -386,8 +389,9 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - 一般訊息 / 確認訊息 / 錯誤訊息的第二列提示文字與 `KEY0` / `KEY1` 返回邏輯正確，且 LEDR 分別以 2 Hz / 5 Hz 全燈閃爍。
 - PS/2 鍵盤可輸入英文字母、數字、空白與常用標點；Shift/Caps Lock 會影響大小寫，Shift 會產生符號。
 - PS/2 Enter / Backspace / Delete 分別觸發 LF、BS、DEL；方向鍵觸發游標左、右、上、下移動。
-- editor 選單確認 `Save to ROM` 並實際存檔時，`LEDR17..LEDR1` 會顯示單燈跑馬燈；這不是進度條，存檔結束後恢復目前行進度顯示。
+- editor 選單確認 `Save to ROM`、`Save`、`Save as SD` 或 `Save as EEPROM` 並實際存檔時，`LEDR17..LEDR1` 會顯示單燈跑馬燈；這不是進度條，存檔結束後恢復目前行進度顯示。
 - editor 選單確認 `Save to ROM` 後 reset/重新上電可從 EEPROM 讀回文件。
+- SD editor 選單確認 `Save` 後重新進入 `SD EDITOR` 可從 SD `EDITOR.TXT` 讀回文件；EEPROM editor `Save as SD` 後也可用 `SD EDITOR` 讀回同一檔案。
 - `HEX7~HEX6` 目前行號、`HEX5~HEX4` 游標位置、`HEX3~HEX2` 文件總行數為十進位；`HEX1~HEX0` ASCII 撥桿狀態維持十六進位。
 - 打字遊戲秒表使用 Qsys `timer` 產生的 HAL tick；`system.h` 應維持 `ALT_SYS_CLK TIMER` 且 `TIMER_TICKS_PER_SEC 1000.0`。
 

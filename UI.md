@@ -25,7 +25,7 @@
 
 - `display_init()`：初始化 LCD，清空 HEX、LEDR、LEDG，重設 display 內部狀態。
 - `display_clear_hex()`：清空 HEX0~HEX7。首頁選單本身不顯示 editor 行號或打字遊戲時間，回首頁時由 `main.c` 的外層狀態切換統一呼叫，避免功能畫面的七段狀態留在首頁。
-- `display_update(editor, ascii, nav_mode, eeprom_error)`：editor 主畫面預設入口。會更新 LEDR 文件位置、LEDG 狀態、HEX 數字、LCD 目前行/下一行與 cursor mode，並以 `END` 作為文件最後一行後方的 bottom marker。Insert 模式的底線 cursor 由 `lcd.c` 軟體閃爍；Overwrite 模式使用 LCD 內建整格閃爍 cursor。
+- `display_update(editor, ascii, nav_mode, eeprom_error)`：editor 主畫面預設入口。會更新 LEDR 文件位置、LEDG 狀態、HEX 數字、LCD 目前行/下一行與 cursor mode，並以 `END` 作為文件最後一行後方的 bottom marker。Insert 模式的底線 cursor 由 `lcd.c` 軟體閃爍；Overwrite 模式使用 LCD 內建整格閃爍 cursor。需要 EEPROM / SD 來源 marker 時，呼叫 `display_update_with_markers()` 並由 `main.c` 傳入 `EEPROM` 或 `SD`。
 - `display_update_with_markers(editor, ascii, nav_mode, eeprom_error, top_marker, bottom_marker)`：editor viewport 的通用 marker 入口。`top_marker` 是文件第 0 行前方的閃爍 boundary marker；游標在第 0 行時第一列顯示 marker、第二列顯示第 0 行並放置 LCD cursor，游標離開第 0 行後 marker 會離開可視範圍。`bottom_marker` 是文件最後一行後方的閃爍 boundary marker，`END` 也由此機制顯示。
 
 ### LCD 狀態畫面
@@ -81,7 +81,7 @@ LEDG7..LEDG0 採用類似物件導向的控制方式：外部指定 indicator，
 
 - `DISPLAY_LEDG_INSERT`：LEDG0，Insert mode。
 - `DISPLAY_LEDG_NAV_MODE`：LEDG1，上下移動模式。
-- `DISPLAY_LEDG_EEPROM_ERROR`：LEDG5，EEPROM error。
+- `DISPLAY_LEDG_EEPROM_ERROR`：LEDG5，目前 editor storage error。EEPROM editor 中代表 EEPROM 讀寫錯誤；SD editor 中代表 SD `EDITOR.TXT` 讀寫或文字截斷錯誤。
 - `DISPLAY_LEDG_OVERFLOW`：LEDG6，目前 LCD viewport 右側還有未顯示文字。
 - `DISPLAY_LEDG_DIRTY`：LEDG7，文件有 unsaved changes。
 
@@ -101,14 +101,15 @@ LEDG7..LEDG0 採用類似物件導向的控制方式：外部指定 indicator，
 
 ## 現有畫面分工
 
-- 開機選單：`main.c` 提供 `EEPROM EDITOR` / `SD QUESTION` / `TYPING GAME` 選項列表給 `menu.c`；`KEY3` / `KEY2` 移動，`KEY0` 確認。
-- Editor command / 選單：在 editor 主畫面按 `KEY0` 後，`main.c` 先進 `APP_STATE_EDITOR_COMMAND`，用 `display_show_vi_command()` 顯示 `:VI COMMAND`。空指令返回、`w` 存檔、`q` 離開、`wq` / `x` 存檔後離開、`e!` restore whole；`KEY2` 進入水平選單。水平選單提供 `Save to ROM` / `Quit` / `Restore whole` / `Clear this line` / `Clear All` / `Move to head` / `Move to end` / `Cancel`，並用 `menu_update_with_left_edge()` 讓 `Save to ROM` 再按 `KEY3` 回 command page。
-- Modal 訊息：`main.c` 以 `APP_STATE_INFO_MESSAGE`、`APP_STATE_CONFIRM_MESSAGE`、`APP_STATE_ERROR_MESSAGE` 包裝 display 層的互動訊息。`Save to ROM` 會用一般/錯誤訊息回報結果，`Clear All` 與 dirty `Quit` 會先進確認訊息，EEPROM 載入失敗會進錯誤訊息。
+- 開機選單：`main.c` 提供 `EEPROM EDITOR` / `SD QUESTION` / `SD EDITOR` / `TYPING GAME` 選項列表給 `menu.c`；`KEY3` / `KEY2` 移動，`KEY0` 確認。
+- Editor command / 選單：在 editor 主畫面按 `KEY0` 後，`main.c` 先進 `APP_STATE_EDITOR_COMMAND`，用 `display_show_vi_command()` 顯示 `:VI COMMAND`。空指令返回、`w` 存到目前 editor 的 primary storage、`q` 離開、`wq` / `x` 存檔後離開、`e!` restore whole；`KEY2` 進入水平選單。EEPROM editor 水平選單提供 `Save to ROM` / `Save as SD` / `Quit` / `Restore whole` / `Clear this line` / `Clear All` / `Move to head` / `Move to end` / `Cancel`；SD editor 水平選單提供 `Save` / `Save as EEPROM` / `Quit` / `Restore whole` / `Clear this line` / `Clear All` / `Move to head` / `Move to end` / `Cancel`。兩者都用 `menu_update_with_left_edge()` 讓第一個選項再按 `KEY3` 回 command page。
+- Modal 訊息：`main.c` 以 `APP_STATE_INFO_MESSAGE`、`APP_STATE_CONFIRM_MESSAGE`、`APP_STATE_ERROR_MESSAGE` 包裝 display 層的互動訊息。Primary `Save` / `Save to ROM` 會用一般/錯誤訊息回報結果，`Save as SD` 遇到既有 `EDITOR.TXT` 時用 `Overwrite SD?` confirmation，SD editor 的 `Save as EEPROM` 用 `Overwrite ROM?` confirmation，`Clear All` 與 dirty `Quit` 也會先進確認訊息。
 - EEPROM 載入/儲存等待：`eeprom_*_with_activity()` callback 透過 `display_show_activity_marquee()` 顯示 activity。
-- SD 讀取與檢視：讀取中用 `display_show_message()`，並透過 `sdcard_read_question_text_with_activity()` callback 呼叫 activity marquee；成功後用 `display_show_text_page()`，同時回到 Nios LEDR 控制。`KEY0` 返回首頁選單，不再隱含切回 EEPROM editor。
+- SD 讀寫與檢視：讀取/寫入中用 `display_show_message()`，並透過 `sdcard_*_with_activity()` callback 呼叫 activity marquee。`SD QUESTION` 成功後用 `display_show_text_page()` 顯示 `QUESTION.TXT`，`SD EDITOR` 則把 `EDITOR.TXT` 匯入共用 `EditorDocument` 並走一般 editor UI。`KEY0` 返回首頁選單，不再隱含切回 EEPROM editor。
 - 回首頁：editor quit、SD 題目檢視 `KEY0`、打字遊戲模式/題數選單 `Quit`、打字遊戲 ready 取消、打字遊戲暫停選單 `Quit`、以及打字遊戲完成訊息返回首頁時，都經由 `main.c` 的外層首頁 transition 清空 HEX0~HEX7。
 - 打字遊戲：`main.c` 從首頁先進大小寫模式選單，再進題數選單。大小寫選項為 `Capitalized`、`Default`、`Random Caps`、`Quit`；題數選項為 `5 Questions` 到 `50 Questions`，以 5 題為級距，最後一項 `Quit`。選完後才進 `APP_STATE_TYPING_READY`，用 `display_show_action_message()` 提示關閉 `SW[6:0]`。開始後用 SD activity marquee 讀取 `QUESTION.TXT`，`typing_game.c` 從非空行隨機抽取所選題數，並在題庫層套用大小寫模式：`Capitalized` 只轉換字母為小寫並將第一個字母轉大寫，`Default` 保留原文，`Random Caps` 先轉小寫再 runtime 隨機把每個字母轉大寫，非字母皆不轉換。遊戲中 `editor_input.c` 共用 editor 的 SW/KEY/PS2 輸入派發，但禁用 LF 以維持單行答案；答案完全相符時立即進入下一題；字數達到或超過題目長度但內容不符時，LEDR 使用既有 5 Hz error effect 顯示 2 秒；`KEY0` 開啟 `Restart` / `Continue` / `Quit` 暫停選單。完成後用 `display_show_info_message()` 顯示 `CPM n.nn` 與 `KEY0 OK`，CPM 由所選題目總字元數與完成秒表計算並四捨五入到小數點後兩位。秒表使用 Qsys `timer` 作為 HAL system clock，從第一個 `SW[6:0]` 變化或第一個實際輸入動作開始，暫停選單期間停止累加。
 - EEPROM editor 主畫面：每輪由 `display_update_with_markers(..., "EEPROM", "END")` 統一刷新，不在 `main.c` 個別操作 LED 或 LCD。
+- SD editor 主畫面：每輪由 `display_update_with_markers(..., "SD", "END")` 統一刷新，和 EEPROM editor 共用輸入、cursor、HEX、LEDR progress、LEDG dirty/overflow 狀態。
 
 ## 維護檢查
 

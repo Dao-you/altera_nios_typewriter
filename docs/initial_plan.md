@@ -6,7 +6,7 @@
 
 本專題預計在 ALTERA DE2-115 FPGA 平台上，使用 **Nios II + C 語言** 實作一個簡易文字編輯器。系統透過板上的 `SW` 輸入 ASCII 字元與模式，使用 `KEY` 控制寫入、換行、游標移動與存檔，並透過 `LCD` 顯示目前編輯行內容。`HEX`、`LEDR`、`LEDG` 則用於顯示目前行號、字元位置、總行數與系統狀態。
 
-文字資料會先存放在 C 程式中的 `Document Buffer`。編輯後設定未儲存狀態，使用者按下 `KEY0` 進入 editor 選單，選擇 `Save to ROM` 時再將整份文件寫入 EEPROM，使資料在 reset 或斷電後仍可讀回。
+文字資料會先存放在 C 程式中的 `Document Buffer`。編輯後設定未儲存狀態，使用者按下 `KEY0` 進入 editor 選單，EEPROM editor 可選擇 `Save to ROM` 寫入 EEPROM，也可用 `Save as SD` 匯出到 SD `EDITOR.TXT`；SD editor 則可用 `Save` 覆寫 SD `EDITOR.TXT`，或用 `Save as EEPROM` 在確認後覆寫 EEPROM。
 
 ---
 
@@ -39,7 +39,7 @@ EEPROM 儲存
 | `SW15`       | Nios II reset          | `0`：reset，`1`：run               |
 | `SW16`       | Insert / Overwrite 切換 | `0`：Overwrite，`1`：Insert        |
 | `SW17`       | 移動模式切換                | `0`：左右移動，`1`：上下移動             |
-| `KEY0`       | Editor menu           | 在 editor 主畫面開啟共用選單；選擇 `Save to ROM` 才寫入 EEPROM |
+| `KEY0`       | Editor menu           | 在 editor 主畫面開啟共用選單；依目前 editor 來源執行 EEPROM / SD 儲存選項 |
 | `KEY1`       | Write                 | 寫入目前 ASCII；`0x08` BS，`0x0A` LF，`0x7F` DEL |
 | `KEY3`       | 往前 / 往上               | 依照 `SW17` 決定游標左移或上一行          |
 | `KEY2`       | 往後 / 往下               | 依照 `SW17` 決定游標右移或下一行          |
@@ -51,7 +51,7 @@ EEPROM 儲存
 | `LEDR[17:0]` | 目前行進度條 / blocking activity | 平時依目前行 / 文件總行數，從 `LEDR17` 往 `LEDR0` 亮；最後一行才亮 `LEDR0`。EEPROM 讀寫與 SD 讀取期間暫時使用 `LEDR17..LEDR1` 單燈跑馬燈 |
 | `LEDG0`      | Insert / Overwrite 狀態 | 反映 `SW16`，`0`：Overwrite，`1`：Insert |
 | `LEDG1`      | 移動模式狀態                | `0`：左右，`1`：上下                 |
-| `LEDG5`      | EEPROM error          | EEPROM 讀取或存檔失敗                 |
+| `LEDG5`      | Storage error         | 目前 editor 來源的 EEPROM / SD 讀寫或文字截斷錯誤 |
 | `LEDG6`      | LCD 右側未顯示提示         | 目前 LCD 視窗右側仍有當前行文字未顯示           |
 | `LEDG7`      | Unsaved 狀態            | 文件內容已修改但尚未完成儲存                |
 
@@ -126,13 +126,14 @@ int dirty_flag = 0;
 2. 初始化 LCD / HEX / LED
 3. 顯示共用開機選單，`KEY3` / `KEY2` 左右切換，`KEY0` 確認
 4. 若選擇 `EEPROM EDITOR`，從 EEPROM 讀取文件資料並載入 Document Buffer
-5. 若選擇 `SD QUESTION`，讀取 SD 卡根目錄 `QUESTION.TXT` 做只讀測試
-6. 進入主迴圈
-7. 讀取 SW / KEY
-8. 判斷使用者操作
-9. 更新文件資料
-10. 若按下 KEY0，顯示 editor 選單；確認 `Save to ROM` 且文件有修改時寫入 EEPROM
-11. 更新 LCD / HEX / LED 顯示
+5. 若選擇 `SD QUESTION`，讀取 SD 卡根目錄 `QUESTION.TXT` 做題庫檢視
+6. 若選擇 `SD EDITOR`，讀取 SD 卡根目錄 `EDITOR.TXT` 到 Document Buffer；若不存在則以空白文件開始
+7. 進入主迴圈
+8. 讀取 SW / KEY
+9. 判斷使用者操作
+10. 更新文件資料
+11. 若按下 KEY0，顯示 editor 選單；primary save 寫回目前來源，secondary save 可在 EEPROM 與 SD `EDITOR.TXT` 之間另存
+12. 更新 LCD / HEX / LED 顯示
 ```
 
 ---
@@ -153,7 +154,7 @@ int dirty_flag = 0;
 
 ### 6.3 共用選單 UI
 
-多選項 LCD 畫面使用共用 `menu.c / menu.h` 狀態機。外部流程只提供 null-terminated option list，例如開機選單的 `EEPROM EDITOR`、`SD QUESTION`，或 editor 選單的 `Save to ROM`、`Clear this line`、`Clear All`、`Move to head`、`Move to end`；`menu_update()` 統一處理 `KEY3` 向左、`KEY2` 向右、`KEY0` 確認，並回傳 zero-based option index。
+多選項 LCD 畫面使用共用 `menu.c / menu.h` 狀態機。外部流程只提供 null-terminated option list，例如開機選單的 `EEPROM EDITOR`、`SD QUESTION`、`SD EDITOR`、`TYPING GAME`，或 editor 選單的 `Save to ROM` / `Save as SD` / `Save as EEPROM`、`Clear this line`、`Clear All`、`Move to head`、`Move to end`；`menu_update()` 統一處理 `KEY3` 向左、`KEY2` 向右、`KEY0` 確認，並回傳 zero-based option index。
 
 LCD 顯示規格：
 
@@ -289,10 +290,10 @@ EEPROM 用來保存文件內容，使 reset 或斷電後仍可恢復資料。
 
 ```text
 內容修改後只設定 dirty_flag
-按下 KEY0 開啟 editor 選單，確認 Save to ROM 時才寫入 EEPROM
-EEPROM 讀取、寫入或 SD 讀取期間以 LEDR17..LEDR1 顯示單燈跑馬燈；這只是 blocking activity 視覺效果，不代表讀寫進度
-存檔成功後清除 dirty_flag
-若 dirty_flag = 0，Save to ROM 可略過實際 EEPROM 寫入
+按下 KEY0 開啟 editor 選單，primary save 寫回目前來源；EEPROM editor 可 `Save as SD` 到 `EDITOR.TXT`，SD editor 可在確認後 `Save as EEPROM`
+EEPROM 讀寫或 SD 讀寫期間以 LEDR17..LEDR1 顯示單燈跑馬燈；這只是 blocking activity 視覺效果，不代表讀寫進度
+primary save 成功後清除 dirty_flag
+若 dirty_flag = 0，primary save 可略過實際儲存；secondary save 仍可寫入另一個儲存後端
 ```
 
 ---
@@ -332,7 +333,7 @@ LCD cursor 會放在 `document[current_line][cursor_col]` 的位置。Insert 模
 | `LEDR[17:0]` | 平時顯示目前行 / 文件總行數進度，從 LEDR17 亮到 LEDR0；EEPROM 讀寫與 SD 讀取時暫時以 LEDR17..LEDR1 顯示跑馬燈 |
 | `LEDG0`      | Insert / Overwrite |
 | `LEDG1`      | 左右 / 上下移動          |
-| `LEDG5`      | EEPROM error       |
+| `LEDG5`      | Storage error      |
 | `LEDG6`      | 目前 LCD 視窗右側仍有當前行文字未顯示 |
 | `LEDG7`      | Unsaved            |
 

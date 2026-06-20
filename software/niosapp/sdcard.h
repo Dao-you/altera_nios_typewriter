@@ -2,6 +2,7 @@
 #define SDCARD_H
 
 #define SDCARD_TEXT_BUFFER_SIZE 1024u
+#define SDCARD_EDITOR_FILE_NAME "EDITOR.TXT"
 
 typedef enum {
     SDCARD_OK = 0,
@@ -9,8 +10,11 @@ typedef enum {
     SDCARD_NO_SPI,
     SDCARD_INIT_FAILED,
     SDCARD_READ_FAILED,
+    SDCARD_WRITE_FAILED,
     SDCARD_UNSUPPORTED_FS,
-    SDCARD_FILE_NOT_FOUND
+    SDCARD_FILE_NOT_FOUND,
+    SDCARD_FILE_EXISTS,
+    SDCARD_NO_SPACE
 } SdCardResult;
 
 typedef void (*SdCardActivityCallback)(unsigned int tick, void *context);
@@ -34,6 +38,29 @@ SdCardResult sdcard_read_question_text_with_activity(
     char *buffer,
     unsigned int buffer_size,
     unsigned int *length,
+    SdCardActivityCallback activity,
+    void *activity_context);
+
+/**
+ * Read the fixed SD editor file from a FAT16/FAT32 SD card.
+ */
+SdCardResult sdcard_read_editor_text_with_activity(
+    char *buffer,
+    unsigned int buffer_size,
+    unsigned int *length,
+    SdCardActivityCallback activity,
+    void *activity_context);
+
+/**
+ * Write the fixed SD editor file to a FAT16/FAT32 SD card.
+ *
+ * When overwrite is 0 and the file already exists, returns
+ * SDCARD_FILE_EXISTS without modifying the card.
+ */
+SdCardResult sdcard_write_editor_text_with_activity(
+    const char *buffer,
+    unsigned int length,
+    int overwrite,
     SdCardActivityCallback activity,
     void *activity_context);
 

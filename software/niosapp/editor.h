@@ -4,6 +4,7 @@
 #define MAX_LINES 32
 #define LINE_LEN 99
 #define EDITOR_STORAGE_SIZE (40 + (MAX_LINES * LINE_LEN) + 2)
+#define EDITOR_TEXT_BUFFER_SIZE ((MAX_LINES * LINE_LEN) + MAX_LINES)
 
 typedef struct {
     char document[MAX_LINES][LINE_LEN + 1];
@@ -82,9 +83,23 @@ int editor_move_to_head(EditorDocument *editor);
 int editor_move_to_end(EditorDocument *editor);
 
 /**
- * Clear the dirty flag after a successful EEPROM save.
+ * Clear the dirty flag after a successful primary save.
  */
 void editor_mark_saved(EditorDocument *editor);
+
+/**
+ * Load newline-delimited ASCII text into the fixed editor buffer.
+ * Returns 1 when the whole text fits, or 0 when it must be truncated.
+ */
+int editor_load_text(EditorDocument *editor, const char *buffer, unsigned int length);
+
+/**
+ * Export the editor as newline-delimited ASCII text.
+ * Returns the number of text bytes, excluding the trailing null terminator.
+ */
+unsigned int editor_export_text(const EditorDocument *editor,
+                                char *buffer,
+                                unsigned int buffer_size);
 
 /**
  * Serialize the editor into the fixed EEPROM byte layout.

@@ -21,6 +21,7 @@
 #define SW_TYPING_READY_CLEAR_MASK 0x0000007Fu
 #define VI_COMMAND_MAX_LEN 15u
 #define EDITOR_TOP_MARKER "EEPROM"
+#define SD_EDITOR_TOP_MARKER "SD"
 #define EDITOR_BOTTOM_MARKER "END"
 #define TYPING_READY_ACTION_TEXT "KEY1GO KEY0EXIT"
 #define TYPING_ERROR_SIGNAL_TICKS 2000u
@@ -46,11 +47,13 @@ typedef enum {
 typedef enum {
     APP_MENU_EDITOR = 0,
     APP_MENU_SD_QUESTION = 1,
-    APP_MENU_TYPING_GAME = 2
+    APP_MENU_SD_EDITOR = 2,
+    APP_MENU_TYPING_GAME = 3
 } AppMenuChoice;
 
 typedef enum {
-    EDITOR_MENU_SAVE_TO_ROM = 0,
+    EDITOR_MENU_SAVE_PRIMARY = 0,
+    EDITOR_MENU_SAVE_SECONDARY,
     EDITOR_MENU_QUIT,
     EDITOR_MENU_RESTORE_WHOLE,
     EDITOR_MENU_CLEAR_THIS_LINE,
@@ -63,14 +66,22 @@ typedef enum {
 typedef enum {
     APP_SAVE_SKIPPED = 0,
     APP_SAVE_OK,
-    APP_SAVE_FAILED
+    APP_SAVE_FAILED,
+    APP_SAVE_FILE_EXISTS
 } AppSaveResult;
 
 typedef enum {
     APP_CONFIRM_NONE = 0,
     APP_CONFIRM_CLEAR_ALL,
-    APP_CONFIRM_QUIT_NO_SAVE
+    APP_CONFIRM_QUIT_NO_SAVE,
+    APP_CONFIRM_OVERWRITE_SD,
+    APP_CONFIRM_SAVE_AS_EEPROM
 } AppConfirmAction;
+
+typedef enum {
+    APP_EDITOR_SOURCE_EEPROM = 0,
+    APP_EDITOR_SOURCE_SD
+} AppEditorSource;
 
 typedef enum {
     TYPING_MODE_TITLE = 0,
@@ -88,6 +99,7 @@ typedef enum {
 static char app_vi_command[VI_COMMAND_MAX_LEN + 1u];
 static unsigned char app_vi_command_len = 0;
 static char app_sd_text[SDCARD_TEXT_BUFFER_SIZE];
+static char app_editor_text[EDITOR_TEXT_BUFFER_SIZE];
 static unsigned int app_sd_text_length = 0;
 static unsigned int app_sd_first_line = 0;
 static unsigned int app_sd_line_count = 1;
@@ -107,11 +119,25 @@ static AppConfirmAction app_confirm_action = APP_CONFIRM_NONE;
 static const char *const app_start_menu_options[] = {
     "EEPROM EDITOR",
     "SD QUESTION",
+    "SD EDITOR",
     "TYPING GAME",
     0
 };
-static const char *const app_editor_menu_options[] = {
+static const char *const app_eeprom_editor_menu_options[] = {
     "Save to ROM",
+    "Save as SD",
+    "Quit",
+    "Restore whole",
+    "Clear this line",
+    "Clear All",
+    "Move to head",
+    "Move to end",
+    "Cancel",
+    0
+};
+static const char *const app_sd_editor_menu_options[] = {
+    "Save",
+    "Save as EEPROM",
     "Quit",
     "Restore whole",
     "Clear this line",
@@ -251,6 +277,22 @@ static void app_apply_typing_mode_selection(int selection)
     }
 }
 
+static const char *const *app_editor_menu_options_for_source(AppEditorSource source)
+{
+    if (source == APP_EDITOR_SOURCE_SD) {
+        return app_sd_editor_menu_options;
+    }
+    return app_eeprom_editor_menu_options;
+}
+
+static const char *app_editor_top_marker(AppEditorSource source)
+{
+    if (source == APP_EDITOR_SOURCE_SD) {
+        return SD_EDITOR_TOP_MARKER;
+    }
+    return EDITOR_TOP_MARKER;
+}
+
 /**
  * Advance the LEDR activity marquee while a blocking load/save runs.
  *
@@ -333,26 +375,6 @@ static void app_start_confirm_message(const char *message,
     *state = APP_STATE_CONFIRM_MESSAGE;
 }
 
-/**
- * Save the document only when dirty.
- */
-static AppSaveResult app_handle_save(EditorDocument *editor)
-{
-    if (!editor->dirty) {
-        return APP_SAVE_SKIPPED;
-    }
-    if (eeprom_save_document_with_activity(editor,
-                                           app_show_blocking_activity,
-                                           0)) {
-        editor_mark_saved(editor);
-        printf("EEPROM save OK\n");
-        return APP_SAVE_OK;
-    }
-
-    printf("EEPROM save failed\n");
-    return APP_SAVE_FAILED;
-}
-
 static int app_load_eeprom_document(EditorDocument *editor)
 {
     int load_status;
@@ -372,6 +394,40 @@ static int app_load_eeprom_document(EditorDocument *editor)
     }
 
     return load_status == EEPROM_LOAD_ERROR;
+}
+
+static SdCardResult app_load_sd_editor_document(EditorDocument *editor)
+{
+    SdCardResult result;
+    unsigned int length;
+    int text_fits;
+
+    display_show_message("Loading SD", SDCARD_EDITOR_FILE_NAME);
+    app_show_blocking_activity(0, 0);
+    length = 0u;
+    result = sdcard_read_editor_text_with_activity(
+        app_editor_text,
+        EDITOR_TEXT_BUFFER_SIZE,
+        &length,
+        app_show_blocking_activity,
+        0);
+    if (result == SDCARD_OK || result == SDCARD_OK_TRUNCATED) {
+        text_fits = editor_load_text(editor, app_editor_text, length);
+        if (!text_fits && result == SDCARD_OK) {
+            result = SDCARD_OK_TRUNCATED;
+        }
+        printf("SD %s loaded: %s, %u bytes\n",
+               SDCARD_EDITOR_FILE_NAME,
+               sdcard_result_text(result),
+               length);
+        return result;
+    }
+
+    editor_init(editor);
+    printf("SD %s load failed: %s\n",
+           SDCARD_EDITOR_FILE_NAME,
+           sdcard_result_text(result));
+    return result;
 }
 
 static void app_quit_editor(EditorDocument *editor,
@@ -398,18 +454,153 @@ static void app_start_quit_no_save_confirm(AppState *state)
                               state);
 }
 
-static void app_handle_save_feedback(EditorDocument *editor,
-                                     int *eeprom_error,
-                                     AppState *state)
+static AppSaveResult app_save_to_eeprom(EditorDocument *editor,
+                                        int mark_primary_saved)
+{
+    if (mark_primary_saved && !editor->dirty) {
+        return APP_SAVE_SKIPPED;
+    }
+
+    display_show_message("Saving EEPROM", "Please wait");
+    app_show_blocking_activity(0, 0);
+    eeprom_init();
+    if (eeprom_save_document_with_activity(editor,
+                                           app_show_blocking_activity,
+                                           0)) {
+        if (mark_primary_saved) {
+            editor_mark_saved(editor);
+        }
+        printf("EEPROM save OK\n");
+        return APP_SAVE_OK;
+    }
+
+    printf("EEPROM save failed\n");
+    return APP_SAVE_FAILED;
+}
+
+static AppSaveResult app_save_to_sd(EditorDocument *editor,
+                                    int overwrite,
+                                    int mark_primary_saved)
+{
+    unsigned int length;
+    SdCardResult result;
+
+    if (mark_primary_saved && !editor->dirty) {
+        return APP_SAVE_SKIPPED;
+    }
+
+    length = editor_export_text(editor,
+                                app_editor_text,
+                                EDITOR_TEXT_BUFFER_SIZE);
+    if (length >= EDITOR_TEXT_BUFFER_SIZE) {
+        printf("SD export too large\n");
+        return APP_SAVE_FAILED;
+    }
+
+    display_show_message("Saving SD", SDCARD_EDITOR_FILE_NAME);
+    app_show_blocking_activity(0, 0);
+    result = sdcard_write_editor_text_with_activity(
+        app_editor_text,
+        length,
+        overwrite,
+        app_show_blocking_activity,
+        0);
+    if (result == SDCARD_OK) {
+        if (mark_primary_saved) {
+            editor_mark_saved(editor);
+        }
+        printf("SD %s save OK, %u bytes\n",
+               SDCARD_EDITOR_FILE_NAME,
+               length);
+        return APP_SAVE_OK;
+    }
+    if (result == SDCARD_FILE_EXISTS) {
+        printf("SD %s already exists\n", SDCARD_EDITOR_FILE_NAME);
+        return APP_SAVE_FILE_EXISTS;
+    }
+
+    printf("SD %s save failed: %s\n",
+           SDCARD_EDITOR_FILE_NAME,
+           sdcard_result_text(result));
+    return APP_SAVE_FAILED;
+}
+
+static void app_handle_primary_save_feedback(EditorDocument *editor,
+                                             int *eeprom_error,
+                                             AppEditorSource source,
+                                             AppState *state)
 {
     AppSaveResult save_result;
 
-    save_result = app_handle_save(editor);
+    if (source == APP_EDITOR_SOURCE_SD) {
+        save_result = app_save_to_sd(editor, 1, 1);
+    } else {
+        save_result = app_save_to_eeprom(editor, 1);
+    }
     if (save_result == APP_SAVE_SKIPPED) {
         app_start_info_message("No changes", APP_STATE_EDITOR, state);
     } else if (save_result == APP_SAVE_OK) {
         *eeprom_error = 0;
-        app_start_info_message("Saved to ROM", APP_STATE_EDITOR, state);
+        if (source == APP_EDITOR_SOURCE_SD) {
+            app_start_info_message("Saved to SD", APP_STATE_EDITOR, state);
+        } else {
+            app_start_info_message("Saved to ROM", APP_STATE_EDITOR, state);
+        }
+    } else {
+        *eeprom_error = 1;
+        app_start_error_message("Save failed", APP_STATE_EDITOR, state);
+    }
+}
+
+static void app_handle_save_as_sd_feedback(EditorDocument *editor,
+                                           int *eeprom_error,
+                                           AppState *state)
+{
+    AppSaveResult save_result;
+
+    save_result = app_save_to_sd(editor, 0, 0);
+    if (save_result == APP_SAVE_FILE_EXISTS) {
+        app_start_confirm_message("Overwrite SD?",
+                                  APP_CONFIRM_OVERWRITE_SD,
+                                  APP_STATE_EDITOR,
+                                  state);
+    } else if (save_result == APP_SAVE_OK) {
+        *eeprom_error = 0;
+        app_start_info_message("Saved to SD", APP_STATE_EDITOR, state);
+    } else {
+        *eeprom_error = 1;
+        app_start_error_message("SD save failed", APP_STATE_EDITOR, state);
+    }
+}
+
+static void app_handle_overwrite_sd_confirm(EditorDocument *editor,
+                                            int *eeprom_error,
+                                            AppState *state)
+{
+    if (app_save_to_sd(editor, 1, 0) == APP_SAVE_OK) {
+        *eeprom_error = 0;
+        app_start_info_message("Saved to SD", APP_STATE_EDITOR, state);
+    } else {
+        *eeprom_error = 1;
+        app_start_error_message("SD save failed", APP_STATE_EDITOR, state);
+    }
+}
+
+static void app_start_save_as_eeprom_confirm(AppState *state)
+{
+    app_start_confirm_message("Overwrite ROM?",
+                              APP_CONFIRM_SAVE_AS_EEPROM,
+                              APP_STATE_EDITOR,
+                              state);
+}
+
+static void app_handle_save_as_eeprom_confirm(EditorDocument *editor,
+                                              int *eeprom_error,
+                                              AppState *state)
+{
+    if (app_save_to_eeprom(editor, 0) == APP_SAVE_OK) {
+        *eeprom_error = 0;
+        app_start_info_message("Saved to EEPROM", APP_STATE_EDITOR, state);
     } else {
         *eeprom_error = 1;
         app_start_error_message("Save failed", APP_STATE_EDITOR, state);
@@ -419,11 +610,16 @@ static void app_handle_save_feedback(EditorDocument *editor,
 static void app_save_and_quit(EditorDocument *editor,
                               int *eeprom_error,
                               int *editor_loaded,
+                              AppEditorSource source,
                               AppState *state)
 {
     AppSaveResult save_result;
 
-    save_result = app_handle_save(editor);
+    if (source == APP_EDITOR_SOURCE_SD) {
+        save_result = app_save_to_sd(editor, 1, 1);
+    } else {
+        save_result = app_save_to_eeprom(editor, 1);
+    }
     if (save_result == APP_SAVE_FAILED) {
         *eeprom_error = 1;
         app_start_error_message("Save failed", APP_STATE_EDITOR, state);
@@ -436,13 +632,33 @@ static void app_save_and_quit(EditorDocument *editor,
 
 static void app_restore_whole(EditorDocument *editor,
                               int *eeprom_error,
+                              AppEditorSource source,
                               AppState *state)
 {
     EditorDocument restored;
     int load_status;
+    SdCardResult sd_result;
 
     display_show_message("Restoring", "Please wait");
     app_show_blocking_activity(0, 0);
+    if (source == APP_EDITOR_SOURCE_SD) {
+        sd_result = app_load_sd_editor_document(editor);
+        if (sd_result == SDCARD_OK) {
+            *eeprom_error = 0;
+            app_start_info_message("Restored", APP_STATE_EDITOR, state);
+        } else if (sd_result == SDCARD_OK_TRUNCATED) {
+            *eeprom_error = 1;
+            app_start_error_message("Text truncated", APP_STATE_EDITOR, state);
+        } else if (sd_result == SDCARD_FILE_NOT_FOUND) {
+            *eeprom_error = 0;
+            app_start_info_message("No SD file", APP_STATE_EDITOR, state);
+        } else {
+            *eeprom_error = 1;
+            app_start_error_message("Restore failed", APP_STATE_EDITOR, state);
+        }
+        return;
+    }
+
     eeprom_init();
     editor_init(&restored);
     load_status = eeprom_load_document_with_activity(&restored,
@@ -463,12 +679,20 @@ static void app_restore_whole(EditorDocument *editor,
 static void app_handle_editor_menu_choice(EditorDocument *editor,
                                           int selection,
                                           int *eeprom_error,
+                                          AppEditorSource source,
                                           AppState *state,
                                           int *editor_loaded)
 {
     switch (selection) {
-    case EDITOR_MENU_SAVE_TO_ROM:
-        app_handle_save_feedback(editor, eeprom_error, state);
+    case EDITOR_MENU_SAVE_PRIMARY:
+        app_handle_primary_save_feedback(editor, eeprom_error, source, state);
+        break;
+    case EDITOR_MENU_SAVE_SECONDARY:
+        if (source == APP_EDITOR_SOURCE_SD) {
+            app_start_save_as_eeprom_confirm(state);
+        } else {
+            app_handle_save_as_sd_feedback(editor, eeprom_error, state);
+        }
         break;
     case EDITOR_MENU_QUIT:
         if (editor->dirty) {
@@ -478,7 +702,7 @@ static void app_handle_editor_menu_choice(EditorDocument *editor,
         }
         break;
     case EDITOR_MENU_RESTORE_WHOLE:
-        app_restore_whole(editor, eeprom_error, state);
+        app_restore_whole(editor, eeprom_error, source, state);
         break;
     case EDITOR_MENU_CLEAR_THIS_LINE:
         editor_clear_current_line(editor);
@@ -519,6 +743,14 @@ static void app_handle_confirm_yes(EditorDocument *editor,
     case APP_CONFIRM_QUIT_NO_SAVE:
         app_confirm_action = APP_CONFIRM_NONE;
         app_quit_editor(editor, editor_loaded, eeprom_error, state);
+        return;
+    case APP_CONFIRM_OVERWRITE_SD:
+        app_confirm_action = APP_CONFIRM_NONE;
+        app_handle_overwrite_sd_confirm(editor, eeprom_error, state);
+        return;
+    case APP_CONFIRM_SAVE_AS_EEPROM:
+        app_confirm_action = APP_CONFIRM_NONE;
+        app_handle_save_as_eeprom_confirm(editor, eeprom_error, state);
         return;
     default:
         break;
@@ -579,13 +811,14 @@ static void app_vi_command_append(unsigned char code)
 static void app_execute_vi_command(EditorDocument *editor,
                                    int *eeprom_error,
                                    int *editor_loaded,
+                                   AppEditorSource source,
                                    AppState *state)
 {
     if (app_vi_command_len == 0u) {
         *state = APP_STATE_EDITOR;
     } else if (app_vi_command_is("w")) {
         app_reset_vi_command();
-        app_handle_save_feedback(editor, eeprom_error, state);
+        app_handle_primary_save_feedback(editor, eeprom_error, source, state);
     } else if (app_vi_command_is("q")) {
         app_reset_vi_command();
         if (editor->dirty) {
@@ -595,10 +828,10 @@ static void app_execute_vi_command(EditorDocument *editor,
         }
     } else if (app_vi_command_is("wq") || app_vi_command_is("x")) {
         app_reset_vi_command();
-        app_save_and_quit(editor, eeprom_error, editor_loaded, state);
+        app_save_and_quit(editor, eeprom_error, editor_loaded, source, state);
     } else if (app_vi_command_is("e!")) {
         app_reset_vi_command();
-        app_restore_whole(editor, eeprom_error, state);
+        app_restore_whole(editor, eeprom_error, source, state);
     } else {
         app_start_error_message("Bad command",
                                 APP_STATE_EDITOR_COMMAND,
@@ -610,6 +843,7 @@ static void app_handle_vi_command_code(EditorDocument *editor,
                                        unsigned char code,
                                        int *eeprom_error,
                                        int *editor_loaded,
+                                       AppEditorSource source,
                                        AppState *state)
 {
     switch (code) {
@@ -619,7 +853,11 @@ static void app_handle_vi_command_code(EditorDocument *editor,
         break;
     case 0x0Au:
     case 0x0Du:
-        app_execute_vi_command(editor, eeprom_error, editor_loaded, state);
+        app_execute_vi_command(editor,
+                               eeprom_error,
+                               editor_loaded,
+                               source,
+                               state);
         break;
     default:
         app_vi_command_append(code);
@@ -630,6 +868,7 @@ static void app_handle_vi_command_code(EditorDocument *editor,
 static void app_handle_vi_keyboard(EditorDocument *editor,
                                    int *eeprom_error,
                                    int *editor_loaded,
+                                   AppEditorSource source,
                                    AppState *state)
 {
     unsigned char code;
@@ -644,6 +883,7 @@ static void app_handle_vi_keyboard(EditorDocument *editor,
                                        code,
                                        eeprom_error,
                                        editor_loaded,
+                                       source,
                                        state);
         }
         ++count;
@@ -818,6 +1058,8 @@ int main(void)
     int nav_mode;
     int eeprom_error;
     int editor_loaded;
+    AppEditorSource app_editor_source;
+    SdCardResult load_result;
 
     printf("Nios II text editor starting\n");
 
@@ -826,7 +1068,8 @@ int main(void)
     key_init(&keys);
     keyboard_init();
     menu_init(&start_menu, app_start_menu_options);
-    menu_init(&editor_menu, app_editor_menu_options);
+    app_editor_source = APP_EDITOR_SOURCE_EEPROM;
+    menu_init(&editor_menu, app_editor_menu_options_for_source(app_editor_source));
     menu_init(&typing_mode_menu, app_typing_mode_options);
     menu_init(&typing_count_menu, app_typing_count_options);
     menu_init(&typing_menu, app_typing_menu_options);
@@ -849,7 +1092,9 @@ int main(void)
         if (state == APP_STATE_MENU) {
             menu_selection = menu_update(&start_menu, &keys);
             if (menu_selection == APP_MENU_EDITOR) {
-                if (!editor_loaded) {
+                if (!editor_loaded ||
+                    app_editor_source != APP_EDITOR_SOURCE_EEPROM) {
+                    app_editor_source = APP_EDITOR_SOURCE_EEPROM;
                     eeprom_error = app_load_eeprom_document(&editor);
                     editor_loaded = 1;
                 }
@@ -863,6 +1108,29 @@ int main(void)
             } else if (menu_selection == APP_MENU_SD_QUESTION) {
                 app_load_sd_question();
                 state = APP_STATE_SD_VIEW;
+            } else if (menu_selection == APP_MENU_SD_EDITOR) {
+                app_editor_source = APP_EDITOR_SOURCE_SD;
+                load_result = app_load_sd_editor_document(&editor);
+                editor_loaded = 1;
+                if (load_result == SDCARD_OK) {
+                    eeprom_error = 0;
+                    state = APP_STATE_EDITOR;
+                } else if (load_result == SDCARD_OK_TRUNCATED) {
+                    eeprom_error = 1;
+                    app_start_error_message("Text truncated",
+                                            APP_STATE_EDITOR,
+                                            &state);
+                } else if (load_result == SDCARD_FILE_NOT_FOUND) {
+                    eeprom_error = 0;
+                    app_start_info_message("No SD file",
+                                           APP_STATE_EDITOR,
+                                           &state);
+                } else {
+                    eeprom_error = 1;
+                    app_start_error_message("SD load fail",
+                                            APP_STATE_EDITOR,
+                                            &state);
+                }
             } else if (menu_selection == APP_MENU_TYPING_GAME) {
                 typing_game_init(&app_typing_game);
                 app_reset_typing_error_signal();
@@ -1009,7 +1277,8 @@ int main(void)
             }
         } else if (state == APP_STATE_EDITOR_COMMAND) {
             if (key_pressed_edge(&keys, KEY_MASK_2)) {
-                menu_init(&editor_menu, app_editor_menu_options);
+                menu_init(&editor_menu,
+                          app_editor_menu_options_for_source(app_editor_source));
                 state = APP_STATE_EDITOR_MENU;
             } else {
                 if (key_pressed_edge(&keys, KEY_MASK_1)) {
@@ -1017,6 +1286,7 @@ int main(void)
                                                ascii,
                                                &eeprom_error,
                                                &editor_loaded,
+                                               app_editor_source,
                                                &state);
                 }
                 if (state == APP_STATE_EDITOR_COMMAND &&
@@ -1024,12 +1294,14 @@ int main(void)
                     app_execute_vi_command(&editor,
                                            &eeprom_error,
                                            &editor_loaded,
+                                           app_editor_source,
                                            &state);
                 }
                 if (state == APP_STATE_EDITOR_COMMAND) {
                     app_handle_vi_keyboard(&editor,
                                            &eeprom_error,
                                            &editor_loaded,
+                                           app_editor_source,
                                            &state);
                 }
                 if (state == APP_STATE_EDITOR_COMMAND) {
@@ -1046,6 +1318,7 @@ int main(void)
                 app_handle_editor_menu_choice(&editor,
                                               menu_selection,
                                               &eeprom_error,
+                                              app_editor_source,
                                               &state,
                                               &editor_loaded);
             }
@@ -1059,7 +1332,7 @@ int main(void)
                                             ascii,
                                             nav_mode,
                                             eeprom_error,
-                                            EDITOR_TOP_MARKER,
+                                            app_editor_top_marker(app_editor_source),
                                             EDITOR_BOTTOM_MARKER);
             }
         }

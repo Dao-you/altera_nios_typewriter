@@ -457,6 +457,107 @@ void editor_mark_saved(EditorDocument *editor)
 }
 
 /**
+ * Load newline-delimited ASCII text into the fixed editor buffer.
+ * Returns 1 when the whole text fits, or 0 when it must be truncated.
+ */
+int editor_load_text(EditorDocument *editor, const char *buffer, unsigned int length)
+{
+    unsigned int i;
+    unsigned char line;
+    unsigned char col;
+    unsigned char insert_mode;
+    unsigned char ch;
+    int truncated;
+
+    insert_mode = editor->insert_mode;
+    editor_init(editor);
+    editor->insert_mode = insert_mode;
+
+    line = 0;
+    col = 0;
+    truncated = 0;
+
+    for (i = 0u; i < length; ++i) {
+        ch = (unsigned char)buffer[i];
+        if (ch == '\r') {
+            continue;
+        }
+        if (ch == '\n') {
+            if (line + 1u < MAX_LINES) {
+                ++line;
+                col = 0;
+                if (editor->total_lines < line + 1u) {
+                    editor->total_lines = line + 1u;
+                }
+            } else {
+                truncated = 1;
+            }
+            continue;
+        }
+
+        if (ch == '\t') {
+            ch = ' ';
+        }
+        if (ch < 0x20u || ch > 0x7Eu) {
+            continue;
+        }
+        if (col < LINE_LEN) {
+            editor->document[line][col] = (char)ch;
+            ++col;
+            editor->line_len[line] = col;
+        } else {
+            truncated = 1;
+        }
+    }
+
+    editor->current_line = 0;
+    editor->cursor_col = 0;
+    editor->dirty = 0;
+    editor_normalize(editor);
+
+    return truncated ? 0 : 1;
+}
+
+/**
+ * Export the editor as newline-delimited ASCII text.
+ * Returns the number of text bytes, excluding the trailing null terminator.
+ */
+unsigned int editor_export_text(const EditorDocument *editor,
+                                char *buffer,
+                                unsigned int buffer_size)
+{
+    unsigned int line;
+    unsigned int col;
+    unsigned int length;
+
+    length = 0u;
+    for (line = 0u; line < editor->total_lines; ++line) {
+        for (col = 0u; col < editor->line_len[line]; ++col) {
+            if (buffer != 0 && length + 1u < buffer_size) {
+                buffer[length] = editor->document[line][col];
+            }
+            ++length;
+        }
+        if (line + 1u < editor->total_lines) {
+            if (buffer != 0 && length + 1u < buffer_size) {
+                buffer[length] = '\n';
+            }
+            ++length;
+        }
+    }
+
+    if (buffer != 0 && buffer_size > 0u) {
+        if (length < buffer_size) {
+            buffer[length] = '\0';
+        } else {
+            buffer[buffer_size - 1u] = '\0';
+        }
+    }
+
+    return length;
+}
+
+/**
  * Serialize the editor into the fixed EEPROM byte layout.
  */
 void editor_serialize(const EditorDocument *editor, unsigned char *buffer, unsigned int size)
