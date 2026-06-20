@@ -631,6 +631,18 @@ int editor_deserialize(EditorDocument *editor, const unsigned char *buffer, unsi
     if (buffer[3] < 1 || buffer[3] > MAX_LINES) {
         return 0;
     }
+    if (buffer[4] >= buffer[3]) {
+        return 0;
+    }
+
+    for (line = 0; line < MAX_LINES; ++line) {
+        if (buffer[STORAGE_LINE_LEN_OFFSET + line] > LINE_LEN) {
+            return 0;
+        }
+    }
+    if (buffer[5] > buffer[STORAGE_LINE_LEN_OFFSET + buffer[4]]) {
+        return 0;
+    }
 
     editor_init(editor);
     editor->total_lines = buffer[3];
@@ -639,9 +651,6 @@ int editor_deserialize(EditorDocument *editor, const unsigned char *buffer, unsi
     editor->insert_mode = buffer[6] ? 1 : 0;
 
     for (line = 0; line < MAX_LINES; ++line) {
-        if (buffer[STORAGE_LINE_LEN_OFFSET + line] > LINE_LEN) {
-            return 0;
-        }
         editor->line_len[line] = buffer[STORAGE_LINE_LEN_OFFSET + line];
     }
 

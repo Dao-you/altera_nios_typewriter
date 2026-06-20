@@ -99,7 +99,6 @@ typedef enum {
 static char app_vi_command[VI_COMMAND_MAX_LEN + 1u];
 static unsigned char app_vi_command_len = 0;
 static char app_sd_text[SDCARD_TEXT_BUFFER_SIZE];
-static char app_editor_text[EDITOR_TEXT_BUFFER_SIZE];
 static unsigned int app_sd_text_length = 0;
 static unsigned int app_sd_first_line = 0;
 static unsigned int app_sd_line_count = 1;
@@ -398,6 +397,7 @@ static int app_load_eeprom_document(EditorDocument *editor)
 
 static SdCardResult app_load_sd_editor_document(EditorDocument *editor)
 {
+    char editor_text[EDITOR_TEXT_BUFFER_SIZE];
     SdCardResult result;
     unsigned int length;
     int text_fits;
@@ -406,13 +406,13 @@ static SdCardResult app_load_sd_editor_document(EditorDocument *editor)
     app_show_blocking_activity(0, 0);
     length = 0u;
     result = sdcard_read_editor_text_with_activity(
-        app_editor_text,
+        editor_text,
         EDITOR_TEXT_BUFFER_SIZE,
         &length,
         app_show_blocking_activity,
         0);
     if (result == SDCARD_OK || result == SDCARD_OK_TRUNCATED) {
-        text_fits = editor_load_text(editor, app_editor_text, length);
+        text_fits = editor_load_text(editor, editor_text, length);
         if (!text_fits && result == SDCARD_OK) {
             result = SDCARD_OK_TRUNCATED;
         }
@@ -482,6 +482,7 @@ static AppSaveResult app_save_to_sd(EditorDocument *editor,
                                     int overwrite,
                                     int mark_primary_saved)
 {
+    char editor_text[EDITOR_TEXT_BUFFER_SIZE];
     unsigned int length;
     SdCardResult result;
 
@@ -490,7 +491,7 @@ static AppSaveResult app_save_to_sd(EditorDocument *editor,
     }
 
     length = editor_export_text(editor,
-                                app_editor_text,
+                                editor_text,
                                 EDITOR_TEXT_BUFFER_SIZE);
     if (length >= EDITOR_TEXT_BUFFER_SIZE) {
         printf("SD export too large\n");
@@ -500,7 +501,7 @@ static AppSaveResult app_save_to_sd(EditorDocument *editor,
     display_show_message("Saving SD", SDCARD_EDITOR_FILE_NAME);
     app_show_blocking_activity(0, 0);
     result = sdcard_write_editor_text_with_activity(
-        app_editor_text,
+        editor_text,
         length,
         overwrite,
         app_show_blocking_activity,
@@ -635,7 +636,6 @@ static void app_restore_whole(EditorDocument *editor,
                               AppEditorSource source,
                               AppState *state)
 {
-    EditorDocument restored;
     int load_status;
     SdCardResult sd_result;
 
@@ -660,12 +660,10 @@ static void app_restore_whole(EditorDocument *editor,
     }
 
     eeprom_init();
-    editor_init(&restored);
-    load_status = eeprom_load_document_with_activity(&restored,
+    load_status = eeprom_load_document_with_activity(editor,
                                                      app_show_blocking_activity,
                                                      0);
     if (load_status == EEPROM_LOAD_OK) {
-        *editor = restored;
         *eeprom_error = 0;
         app_start_info_message("Restored", APP_STATE_EDITOR, state);
     } else if (load_status == EEPROM_LOAD_EMPTY) {

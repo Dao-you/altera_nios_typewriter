@@ -403,6 +403,7 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - HEX 是 active-low，直接寫 binary digit 不會顯示預期數字。
 - LCD command/data timing 不能太快；clear/home 等待時間要比一般資料寫入長。
 - I2C SDA 只能 open-drain：drive low 或 release，不能 drive high。
+- Nios app stack/heap 預算很緊；`EditorDocument` 與 EEPROM/SD 文字暫存都是 3KB 等級，避免同時放多份大型 local 或常駐 static buffer，並以 linker 的 free stack/heap 報告確認。
 - 目前已有 Qsys `timer` peripheral 並設定為 HAL system clock；若重新產生 BSP 後 `ALT_SYS_CLK` 變回 `none`，需用 `nios2-bsp-update-settings --set hal.sys_clk_timer timer` 修正後再 build。
 - `UART_RXD` / `UART_TXD` 目前不是 Nios UART；除錯先用 JTAG UART。
 - `SW[15]` 是 reset；`SW[16]` 是 Insert / Overwrite；文字編輯器也使用 `SW[17]` 和 `SW[6:0]`。
