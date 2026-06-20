@@ -94,7 +94,7 @@
 
 - clock source：50 MHz
 - Nios II CPU：`cpu`，tiny implementation
-- On-Chip Memory：128 KiB，base `0x00020000`
+- On-Chip Memory：256 KiB，base `0x00040000`
 - JTAG UART
 - System ID
 - SW input PIO：18 bit
@@ -196,6 +196,8 @@ typedef struct {
     unsigned char dirty;
 } EditorDocument;
 ```
+
+Nios II app RAM 很緊，app-only build 曾只剩約 4 KiB stack + heap。不要在 SD/FAT、EEPROM/I2C、typing game 載入等 blocking 呼叫鏈上宣告 `EDITOR_TEXT_BUFFER_SIZE`、`EDITOR_STORAGE_SIZE` 這類 3 KiB 級區域陣列；stack 被蓋掉時，常見症狀不是乾淨的錯誤碼，而是讀取中途突然跳回首頁選單、狀態亂跳或 modal 消失。遇到這類現象時，先查大型 local array 與 build 報告的 `Bytes free for stack + heap`；修法優先用 caller-provided scratch buffer、`static` / `union` 共用工作區或 streaming parser，避免同時增加 BSS 和 stack 壓力。
 
 `nav_mode` 不存入 `EditorDocument`，由 `main.c` 每輪直接讀取 `SW17`。`insert_mode` 由 `main.c` 每輪讀取 `SW16` 後用 `editor_set_insert_mode()` 更新，不因切換模式設定 dirty。
 

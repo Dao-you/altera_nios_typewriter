@@ -4,7 +4,7 @@
  * Machine generated for CPU 'cpu' in SOPC Builder design 'nios'
  * SOPC Builder design path: ../../nios.sopcinfo
  *
- * Generated: Sat Jun 20 04:56:43 CST 2026
+ * Generated: Sun Jun 21 04:40:07 CST 2026
  */
 
 /*
@@ -65,9 +65,9 @@
  *
  */
 
-#define ONCHIP_MEMORY_REGION_BASE 0x20020
-#define ONCHIP_MEMORY_REGION_SPAN 131040
-#define RESET_REGION_BASE 0x20000
+#define ONCHIP_MEMORY_REGION_BASE 0x40020
+#define ONCHIP_MEMORY_REGION_SPAN 262112
+#define RESET_REGION_BASE 0x40000
 #define RESET_REGION_SPAN 32
 
 

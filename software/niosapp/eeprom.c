@@ -306,24 +306,20 @@ void eeprom_init(void)
 }
 
 /**
- * Read and validate a saved editor document from EEPROM.
- */
-int eeprom_load_document(EditorDocument *editor)
-{
-    return eeprom_load_document_with_activity(editor, 0, 0);
-}
-
-/**
  * Read and validate a saved editor document from EEPROM and report activity.
  *
  * The callback is optional. When supplied, it is used only to indicate that
  * the blocking EEPROM read loop is active.
  */
-int eeprom_load_document_with_activity(EditorDocument *editor,
-                                       EepromActivityCallback activity,
-                                       void *activity_context)
+int eeprom_load_document_with_activity_buffer(EditorDocument *editor,
+                                              unsigned char *buffer,
+                                              unsigned int buffer_size,
+                                              EepromActivityCallback activity,
+                                              void *activity_context)
 {
-    unsigned char buffer[EDITOR_STORAGE_SIZE];
+    if (buffer == 0 || buffer_size < EDITOR_STORAGE_SIZE) {
+        return EEPROM_LOAD_ERROR;
+    }
 
     if (!eeprom_read_bytes(0,
                            buffer,
@@ -340,24 +336,20 @@ int eeprom_load_document_with_activity(EditorDocument *editor,
 }
 
 /**
- * Save the complete editor document to EEPROM.
- */
-int eeprom_save_document(const EditorDocument *editor)
-{
-    return eeprom_save_document_with_activity(editor, 0, 0);
-}
-
-/**
  * Save the complete editor document to EEPROM and report save activity.
  *
  * The callback is optional. When supplied, it is used only to indicate that
  * the blocking EEPROM write loop is active.
  */
-int eeprom_save_document_with_activity(const EditorDocument *editor,
-                                       EepromActivityCallback activity,
-                                       void *activity_context)
+int eeprom_save_document_with_activity_buffer(const EditorDocument *editor,
+                                              unsigned char *buffer,
+                                              unsigned int buffer_size,
+                                              EepromActivityCallback activity,
+                                              void *activity_context)
 {
-    unsigned char buffer[EDITOR_STORAGE_SIZE];
+    if (buffer == 0 || buffer_size < EDITOR_STORAGE_SIZE) {
+        return 0;
+    }
 
     editor_serialize(editor, buffer, EDITOR_STORAGE_SIZE);
     return eeprom_write_bytes(0,

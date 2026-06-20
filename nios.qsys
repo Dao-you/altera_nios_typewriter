@@ -16,7 +16,7 @@
    {
       datum baseAddress
       {
-         value = "266632";
+         value = "528824";
          type = "String";
       }
    }
@@ -32,7 +32,7 @@
    {
       datum baseAddress
       {
-         value = "266624";
+         value = "528816";
          type = "String";
       }
    }
@@ -48,7 +48,7 @@
    {
       datum baseAddress
       {
-         value = "264192";
+         value = "526336";
          type = "String";
       }
    }
@@ -252,115 +252,11 @@
          type = "int";
       }
    }
-   element pio_out_hex2.s1
+   element pio_out_ledr_flag.s1
    {
       datum baseAddress
       {
-         value = "266512";
-         type = "String";
-      }
-   }
-   element pio_out_eep_sda_oe.s1
-   {
-      datum baseAddress
-      {
-         value = "266352";
-         type = "String";
-      }
-   }
-   element pio_in_keyboard_status.s1
-   {
-      datum baseAddress
-      {
-         value = "266304";
-         type = "String";
-      }
-   }
-   element pio_out_lcd_data.s1
-   {
-      datum baseAddress
-      {
-         value = "266416";
-         type = "String";
-      }
-   }
-   element pio_out_hex3.s1
-   {
-      datum baseAddress
-      {
-         value = "266496";
-         type = "String";
-      }
-   }
-   element pio_out_hex1.s1
-   {
-      datum baseAddress
-      {
-         value = "266528";
-         type = "String";
-      }
-   }
-   element pio_in_key.s1
-   {
-      datum baseAddress
-      {
-         value = "266592";
-         type = "String";
-      }
-   }
-   element pio_out_hex5.s1
-   {
-      datum baseAddress
-      {
-         value = "266464";
-         type = "String";
-      }
-   }
-   element pio_in_eep_sda_in.s1
-   {
-      datum baseAddress
-      {
-         value = "266336";
-         type = "String";
-      }
-   }
-   element pio_out_eep_sda_out.s1
-   {
-      datum baseAddress
-      {
-         value = "266368";
-         type = "String";
-      }
-   }
-   element pio_in_keyboard_data.s1
-   {
-      datum baseAddress
-      {
-         value = "266320";
-         type = "String";
-      }
-   }
-   element pio_out_eep_scl.s1
-   {
-      datum baseAddress
-      {
-         value = "266384";
-         type = "String";
-      }
-   }
-   element pio_out_hex4.s1
-   {
-      datum baseAddress
-      {
-         value = "266480";
-         type = "String";
-      }
-   }
-   element pio_out_hex0.s1
-   {
-      datum baseAddress
-      {
-         value = "266544";
+         value = "528448";
          type = "String";
       }
    }
@@ -368,63 +264,7 @@
    {
       datum baseAddress
       {
-         value = "266608";
-         type = "String";
-      }
-   }
-   element pio_out_ledg.s1
-   {
-      datum baseAddress
-      {
-         value = "266560";
-         type = "String";
-      }
-   }
-   element pio_out_ledg8.s1
-   {
-      datum baseAddress
-      {
-         value = "266640";
-         type = "String";
-      }
-   }
-   element onchip_memory.s1
-   {
-      datum baseAddress
-      {
-         value = "131072";
-         type = "String";
-      }
-   }
-   element pio_out_keyboard_ack.s1
-   {
-      datum baseAddress
-      {
-         value = "266288";
-         type = "String";
-      }
-   }
-   element pio_out_lcd_ctrl.s1
-   {
-      datum baseAddress
-      {
-         value = "266400";
-         type = "String";
-      }
-   }
-   element pio_out_hex7.s1
-   {
-      datum baseAddress
-      {
-         value = "266432";
-         type = "String";
-      }
-   }
-   element pio_out_ledr_flag.s1
-   {
-      datum baseAddress
-      {
-         value = "266272";
+         value = "528800";
          type = "String";
       }
    }
@@ -432,7 +272,111 @@
    {
       datum baseAddress
       {
-         value = "266576";
+         value = "528768";
+         type = "String";
+      }
+   }
+   element pio_out_hex4.s1
+   {
+      datum baseAddress
+      {
+         value = "528656";
+         type = "String";
+      }
+   }
+   element pio_out_hex2.s1
+   {
+      datum baseAddress
+      {
+         value = "528688";
+         type = "String";
+      }
+   }
+   element pio_in_keyboard_data.s1
+   {
+      datum baseAddress
+      {
+         value = "528496";
+         type = "String";
+      }
+   }
+   element pio_out_ledg.s1
+   {
+      datum baseAddress
+      {
+         value = "528752";
+         type = "String";
+      }
+   }
+   element pio_out_hex5.s1
+   {
+      datum baseAddress
+      {
+         value = "528640";
+         type = "String";
+      }
+   }
+   element pio_out_eep_sda_oe.s1
+   {
+      datum baseAddress
+      {
+         value = "528528";
+         type = "String";
+      }
+   }
+   element pio_in_keyboard_status.s1
+   {
+      datum baseAddress
+      {
+         value = "528480";
+         type = "String";
+      }
+   }
+   element pio_out_lcd_data.s1
+   {
+      datum baseAddress
+      {
+         value = "528592";
+         type = "String";
+      }
+   }
+   element pio_in_eep_sda_in.s1
+   {
+      datum baseAddress
+      {
+         value = "528512";
+         type = "String";
+      }
+   }
+   element pio_out_hex3.s1
+   {
+      datum baseAddress
+      {
+         value = "528672";
+         type = "String";
+      }
+   }
+   element pio_out_hex1.s1
+   {
+      datum baseAddress
+      {
+         value = "528704";
+         type = "String";
+      }
+   }
+   element pio_out_eep_scl.s1
+   {
+      datum baseAddress
+      {
+         value = "528560";
+         type = "String";
+      }
+   }
+   element timer.s1
+   {
+      datum baseAddress
+      {
+         value = "528384";
          type = "String";
       }
    }
@@ -440,7 +384,71 @@
    {
       datum baseAddress
       {
-         value = "266448";
+         value = "528624";
+         type = "String";
+      }
+   }
+   element pio_out_hex0.s1
+   {
+      datum baseAddress
+      {
+         value = "528720";
+         type = "String";
+      }
+   }
+   element pio_out_ledg8.s1
+   {
+      datum baseAddress
+      {
+         value = "528736";
+         type = "String";
+      }
+   }
+   element pio_out_hex7.s1
+   {
+      datum baseAddress
+      {
+         value = "528608";
+         type = "String";
+      }
+   }
+   element pio_out_keyboard_ack.s1
+   {
+      datum baseAddress
+      {
+         value = "528464";
+         type = "String";
+      }
+   }
+   element pio_in_key.s1
+   {
+      datum baseAddress
+      {
+         value = "528784";
+         type = "String";
+      }
+   }
+   element onchip_memory.s1
+   {
+      datum baseAddress
+      {
+         value = "262144";
+         type = "String";
+      }
+   }
+   element pio_out_eep_sda_out.s1
+   {
+      datum baseAddress
+      {
+         value = "528544";
+         type = "String";
+      }
+   }
+   element pio_out_lcd_ctrl.s1
+   {
+      datum baseAddress
+      {
+         value = "528576";
          type = "String";
       }
    }
@@ -453,7 +461,7 @@
       }
       datum baseAddress
       {
-         value = "266240";
+         value = "528416";
          type = "String";
       }
    }
@@ -727,8 +735,8 @@
   <parameter name="ocimem_ramBlockType" value="Automatic" />
   <parameter name="mmu_ramBlockType" value="Automatic" />
   <parameter name="bht_ramBlockType" value="Automatic" />
-  <parameter name="instAddrWidth" value="19" />
-  <parameter name="dataAddrWidth" value="19" />
+  <parameter name="instAddrWidth" value="20" />
+  <parameter name="dataAddrWidth" value="20" />
   <parameter name="tightlyCoupledDataMaster0AddrWidth" value="1" />
   <parameter name="tightlyCoupledDataMaster1AddrWidth" value="1" />
   <parameter name="tightlyCoupledDataMaster2AddrWidth" value="1" />
@@ -737,8 +745,8 @@
   <parameter name="tightlyCoupledInstructionMaster1AddrWidth" value="1" />
   <parameter name="tightlyCoupledInstructionMaster2AddrWidth" value="1" />
   <parameter name="tightlyCoupledInstructionMaster3AddrWidth" value="1" />
-  <parameter name="instSlaveMapParam"><![CDATA[<address-map><slave name='onchip_memory.s1' start='0x20000' end='0x40000' /><slave name='cpu.jtag_debug_module' start='0x40800' end='0x41000' /></address-map>]]></parameter>
-  <parameter name="dataSlaveMapParam"><![CDATA[<address-map><slave name='timer.s1' start='0x0' end='0x20' /><slave name='onchip_memory.s1' start='0x20000' end='0x40000' /><slave name='cpu.jtag_debug_module' start='0x40800' end='0x41000' /><slave name='spi_sdcard.spi_control_port' start='0x41000' end='0x41020' /><slave name='pio_out_ledr_flag.s1' start='0x41020' end='0x41030' /><slave name='pio_out_keyboard_ack.s1' start='0x41030' end='0x41040' /><slave name='pio_in_keyboard_status.s1' start='0x41040' end='0x41050' /><slave name='pio_in_keyboard_data.s1' start='0x41050' end='0x41060' /><slave name='pio_in_eep_sda_in.s1' start='0x41060' end='0x41070' /><slave name='pio_out_eep_sda_oe.s1' start='0x41070' end='0x41080' /><slave name='pio_out_eep_sda_out.s1' start='0x41080' end='0x41090' /><slave name='pio_out_eep_scl.s1' start='0x41090' end='0x410A0' /><slave name='pio_out_lcd_ctrl.s1' start='0x410A0' end='0x410B0' /><slave name='pio_out_lcd_data.s1' start='0x410B0' end='0x410C0' /><slave name='pio_out_hex7.s1' start='0x410C0' end='0x410D0' /><slave name='pio_out_hex6.s1' start='0x410D0' end='0x410E0' /><slave name='pio_out_hex5.s1' start='0x410E0' end='0x410F0' /><slave name='pio_out_hex4.s1' start='0x410F0' end='0x41100' /><slave name='pio_out_hex3.s1' start='0x41100' end='0x41110' /><slave name='pio_out_hex2.s1' start='0x41110' end='0x41120' /><slave name='pio_out_hex1.s1' start='0x41120' end='0x41130' /><slave name='pio_out_hex0.s1' start='0x41130' end='0x41140' /><slave name='pio_out_ledg.s1' start='0x41140' end='0x41150' /><slave name='pio_out_ledr.s1' start='0x41150' end='0x41160' /><slave name='pio_in_key.s1' start='0x41160' end='0x41170' /><slave name='pio_in_sw.s1' start='0x41170' end='0x41180' /><slave name='sysid_qsys.control_slave' start='0x41180' end='0x41188' /><slave name='jtag_uart.avalon_jtag_slave' start='0x41188' end='0x41190' /><slave name='pio_out_ledg8.s1' start='0x41190' end='0x411A0' /></address-map>]]></parameter>
+  <parameter name="instSlaveMapParam"><![CDATA[<address-map><slave name='onchip_memory.s1' start='0x40000' end='0x80000' /><slave name='cpu.jtag_debug_module' start='0x80800' end='0x81000' /></address-map>]]></parameter>
+  <parameter name="dataSlaveMapParam"><![CDATA[<address-map><slave name='onchip_memory.s1' start='0x40000' end='0x80000' /><slave name='cpu.jtag_debug_module' start='0x80800' end='0x81000' /><slave name='timer.s1' start='0x81000' end='0x81020' /><slave name='spi_sdcard.spi_control_port' start='0x81020' end='0x81040' /><slave name='pio_out_ledr_flag.s1' start='0x81040' end='0x81050' /><slave name='pio_out_keyboard_ack.s1' start='0x81050' end='0x81060' /><slave name='pio_in_keyboard_status.s1' start='0x81060' end='0x81070' /><slave name='pio_in_keyboard_data.s1' start='0x81070' end='0x81080' /><slave name='pio_in_eep_sda_in.s1' start='0x81080' end='0x81090' /><slave name='pio_out_eep_sda_oe.s1' start='0x81090' end='0x810A0' /><slave name='pio_out_eep_sda_out.s1' start='0x810A0' end='0x810B0' /><slave name='pio_out_eep_scl.s1' start='0x810B0' end='0x810C0' /><slave name='pio_out_lcd_ctrl.s1' start='0x810C0' end='0x810D0' /><slave name='pio_out_lcd_data.s1' start='0x810D0' end='0x810E0' /><slave name='pio_out_hex7.s1' start='0x810E0' end='0x810F0' /><slave name='pio_out_hex6.s1' start='0x810F0' end='0x81100' /><slave name='pio_out_hex5.s1' start='0x81100' end='0x81110' /><slave name='pio_out_hex4.s1' start='0x81110' end='0x81120' /><slave name='pio_out_hex3.s1' start='0x81120' end='0x81130' /><slave name='pio_out_hex2.s1' start='0x81130' end='0x81140' /><slave name='pio_out_hex1.s1' start='0x81140' end='0x81150' /><slave name='pio_out_hex0.s1' start='0x81150' end='0x81160' /><slave name='pio_out_ledg8.s1' start='0x81160' end='0x81170' /><slave name='pio_out_ledg.s1' start='0x81170' end='0x81180' /><slave name='pio_out_ledr.s1' start='0x81180' end='0x81190' /><slave name='pio_in_key.s1' start='0x81190' end='0x811A0' /><slave name='pio_in_sw.s1' start='0x811A0' end='0x811B0' /><slave name='sysid_qsys.control_slave' start='0x811B0' end='0x811B8' /><slave name='jtag_uart.avalon_jtag_slave' start='0x811B8' end='0x811C0' /></address-map>]]></parameter>
   <parameter name="clockFrequency" value="50000000" />
   <parameter name="deviceFamilyName" value="Cyclone IV E" />
   <parameter name="internalIrqMaskSystemInfo" value="7" />
@@ -765,7 +773,7 @@
   <parameter name="initMemContent" value="true" />
   <parameter name="initializationFileName" value="onchip_mem.hex" />
   <parameter name="instanceID" value="NONE" />
-  <parameter name="memorySize" value="131072" />
+  <parameter name="memorySize" value="262144" />
   <parameter name="readDuringWriteMode" value="DONT_CARE" />
   <parameter name="simAllowMRAMContentsFile" value="false" />
   <parameter name="simMemInitOnlyFilename" value="0" />
@@ -1247,7 +1255,7 @@
    start="cpu.instruction_master"
    end="cpu.jtag_debug_module">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00040800" />
+  <parameter name="baseAddress" value="0x00080800" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1256,7 +1264,7 @@
    start="cpu.data_master"
    end="cpu.jtag_debug_module">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00040800" />
+  <parameter name="baseAddress" value="0x00080800" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection kind="clock" version="13.1" start="clk.clk" end="onchip_memory.clk1" />
@@ -1264,10 +1272,10 @@
  <connection kind="clock" version="13.1" start="clk.clk" end="sysid_qsys.clk" />
  <connection kind="clock" version="13.1" start="clk.clk" end="pio_in_sw.clk" />
  <connection kind="clock" version="13.1" start="clk.clk" end="pio_in_key.clk" />
-<connection kind="clock" version="13.1" start="clk.clk" end="pio_out_ledr.clk" />
-<connection kind="clock" version="13.1" start="clk.clk" end="pio_out_ledg.clk" />
+ <connection kind="clock" version="13.1" start="clk.clk" end="pio_out_ledr.clk" />
+ <connection kind="clock" version="13.1" start="clk.clk" end="pio_out_ledg.clk" />
  <connection kind="clock" version="13.1" start="clk.clk" end="pio_out_ledg8.clk" />
-<connection kind="clock" version="13.1" start="clk.clk" end="pio_out_hex0.clk" />
+ <connection kind="clock" version="13.1" start="clk.clk" end="pio_out_hex0.clk" />
  <connection kind="clock" version="13.1" start="clk.clk" end="pio_out_hex1.clk" />
  <connection kind="clock" version="13.1" start="clk.clk" end="pio_out_hex2.clk" />
  <connection kind="clock" version="13.1" start="clk.clk" end="pio_out_hex3.clk" />
@@ -1413,7 +1421,7 @@
    start="cpu.instruction_master"
    end="onchip_memory.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00020000" />
+  <parameter name="baseAddress" value="0x00040000" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1422,7 +1430,7 @@
    start="cpu.data_master"
    end="onchip_memory.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00020000" />
+  <parameter name="baseAddress" value="0x00040000" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1431,7 +1439,7 @@
    start="cpu.data_master"
    end="pio_in_sw.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00041170" />
+  <parameter name="baseAddress" value="0x000811a0" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1440,7 +1448,7 @@
    start="cpu.data_master"
    end="pio_in_key.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00041160" />
+  <parameter name="baseAddress" value="0x00081190" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1449,7 +1457,7 @@
    start="cpu.data_master"
    end="pio_out_ledr.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00041150" />
+  <parameter name="baseAddress" value="0x00081180" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1458,7 +1466,7 @@
    start="cpu.data_master"
    end="pio_out_ledg.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00041140" />
+  <parameter name="baseAddress" value="0x00081170" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1467,7 +1475,7 @@
    start="cpu.data_master"
    end="pio_out_ledg8.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00041190" />
+  <parameter name="baseAddress" value="0x00081160" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1476,7 +1484,7 @@
    start="cpu.data_master"
    end="pio_out_hex0.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00041130" />
+  <parameter name="baseAddress" value="0x00081150" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1485,7 +1493,7 @@
    start="cpu.data_master"
    end="pio_out_hex1.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00041120" />
+  <parameter name="baseAddress" value="0x00081140" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1494,7 +1502,7 @@
    start="cpu.data_master"
    end="pio_out_hex2.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00041110" />
+  <parameter name="baseAddress" value="0x00081130" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1503,7 +1511,7 @@
    start="cpu.data_master"
    end="pio_out_hex3.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00041100" />
+  <parameter name="baseAddress" value="0x00081120" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1512,7 +1520,7 @@
    start="cpu.data_master"
    end="pio_out_hex4.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x000410f0" />
+  <parameter name="baseAddress" value="0x00081110" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1521,7 +1529,7 @@
    start="cpu.data_master"
    end="pio_out_hex5.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x000410e0" />
+  <parameter name="baseAddress" value="0x00081100" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1530,7 +1538,7 @@
    start="cpu.data_master"
    end="pio_out_hex6.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x000410d0" />
+  <parameter name="baseAddress" value="0x000810f0" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1539,7 +1547,7 @@
    start="cpu.data_master"
    end="pio_out_hex7.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x000410c0" />
+  <parameter name="baseAddress" value="0x000810e0" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1548,7 +1556,7 @@
    start="cpu.data_master"
    end="pio_out_lcd_data.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x000410b0" />
+  <parameter name="baseAddress" value="0x000810d0" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1557,7 +1565,7 @@
    start="cpu.data_master"
    end="pio_out_lcd_ctrl.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x000410a0" />
+  <parameter name="baseAddress" value="0x000810c0" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1566,7 +1574,7 @@
    start="cpu.data_master"
    end="pio_out_eep_scl.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00041090" />
+  <parameter name="baseAddress" value="0x000810b0" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1575,7 +1583,7 @@
    start="cpu.data_master"
    end="pio_out_eep_sda_out.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00041080" />
+  <parameter name="baseAddress" value="0x000810a0" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1584,7 +1592,7 @@
    start="cpu.data_master"
    end="pio_out_eep_sda_oe.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00041070" />
+  <parameter name="baseAddress" value="0x00081090" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1593,7 +1601,7 @@
    start="cpu.data_master"
    end="pio_in_eep_sda_in.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00041060" />
+  <parameter name="baseAddress" value="0x00081080" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1607,7 +1615,7 @@
    start="cpu.data_master"
    end="jtag_uart.avalon_jtag_slave">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00041188" />
+  <parameter name="baseAddress" value="0x000811b8" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1616,7 +1624,7 @@
    start="cpu.data_master"
    end="sysid_qsys.control_slave">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00041180" />
+  <parameter name="baseAddress" value="0x000811b0" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection kind="clock" version="13.1" start="clk.clk" end="cpu.clk" />
@@ -1639,7 +1647,7 @@
    start="cpu.data_master"
    end="pio_in_keyboard_data.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00041050" />
+  <parameter name="baseAddress" value="0x00081070" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1658,7 +1666,7 @@
    start="cpu.data_master"
    end="pio_in_keyboard_status.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00041040" />
+  <parameter name="baseAddress" value="0x00081060" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1677,7 +1685,7 @@
    start="cpu.data_master"
    end="pio_out_keyboard_ack.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00041030" />
+  <parameter name="baseAddress" value="0x00081050" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1686,7 +1694,7 @@
    start="cpu.data_master"
    end="spi_sdcard.spi_control_port">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00041000" />
+  <parameter name="baseAddress" value="0x00081020" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection
@@ -1718,7 +1726,7 @@
    start="cpu.data_master"
    end="pio_out_ledr_flag.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x00041020" />
+  <parameter name="baseAddress" value="0x00081040" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <connection kind="interrupt" version="13.1" start="cpu.d_irq" end="timer.irq">
@@ -1728,7 +1736,7 @@
  <connection kind="clock" version="13.1" start="clk.clk" end="timer.clk" />
  <connection kind="avalon" version="13.1" start="cpu.data_master" end="timer.s1">
   <parameter name="arbitrationPriority" value="1" />
-  <parameter name="baseAddress" value="0x0000" />
+  <parameter name="baseAddress" value="0x00081000" />
   <parameter name="defaultConnection" value="false" />
  </connection>
  <interconnectRequirement for="$system" name="qsys_mm.clockCrossingAdapter" value="HANDSHAKE" />

@@ -21,27 +21,21 @@ typedef void (*EepromActivityCallback)(unsigned int tick, void *context);
 void eeprom_init(void);
 
 /**
- * Read and validate a saved editor document from EEPROM.
+ * Read and validate a saved editor document using caller-provided scratch.
  */
-int eeprom_load_document(EditorDocument *editor);
+int eeprom_load_document_with_activity_buffer(EditorDocument *editor,
+                                              unsigned char *buffer,
+                                              unsigned int buffer_size,
+                                              EepromActivityCallback activity,
+                                              void *activity_context);
 
 /**
- * Read and validate a saved editor document from EEPROM and report activity.
+ * Save the complete editor document using caller-provided scratch.
  */
-int eeprom_load_document_with_activity(EditorDocument *editor,
-                                       EepromActivityCallback activity,
-                                       void *activity_context);
-
-/**
- * Save the complete editor document to EEPROM.
- */
-int eeprom_save_document(const EditorDocument *editor);
-
-/**
- * Save the complete editor document to EEPROM and report save activity.
- */
-int eeprom_save_document_with_activity(const EditorDocument *editor,
-                                       EepromActivityCallback activity,
-                                       void *activity_context);
+int eeprom_save_document_with_activity_buffer(const EditorDocument *editor,
+                                              unsigned char *buffer,
+                                              unsigned int buffer_size,
+                                              EepromActivityCallback activity,
+                                              void *activity_context);
 
 #endif
