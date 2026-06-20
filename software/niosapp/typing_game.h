@@ -90,6 +90,7 @@ unsigned char typing_game_current_question_len(const TypingGame *game);
 unsigned char typing_game_current_round_number(const TypingGame *game);
 unsigned char typing_game_total_rounds(const TypingGame *game);
 unsigned int typing_game_elapsed_ms(const TypingGame *game);
+unsigned int typing_game_cpm(const TypingGame *game);
 int typing_game_stopwatch_started(const TypingGame *game);
 
 #endif

@@ -39,7 +39,6 @@
 - `display_show_action_message(message, action_text)`：第一列顯示訊息，第二列顯示自訂按鍵提示，LEDR 使用 2 Hz 全燈閃爍。打字遊戲開始前的 `SW6-0 OFF` / `KEY1GO KEY0EXIT` 使用這個入口。
 - `display_show_text_page(text, length, first_line)`：將 newline-delimited 文字以兩列 LCD 顯示，現在用於 SD `QUESTION.TXT` 測試畫面。
 - `display_show_typing_game(question, question_len, input, current_round, total_rounds, elapsed_ms, ascii, nav_mode, error_signal)`：打字遊戲主畫面。LCD 第一列顯示共用 `EditorDocument` 輸入 viewport，第二列顯示題目 viewport，兩列共用同一個水平捲動起點；LCD cursor 放在第一列輸入位置。LEDR 顯示目前題號進度；若 `error_signal` 非 0，LEDR 暫時切成既有 5 Hz 錯誤閃爍。LEDG7..LEDG0 保持一般狀態燈語意，顯示 Insert、移動模式與輸入列右側 overflow；獨立 `LEDG8` 依秒數閃爍作為 `mm:ss` 冒號提示；HEX7~HEX6 每四秒循環顯示三秒目前題號與一秒總題數，HEX5~HEX4 顯示分鐘，HEX3~HEX2 顯示秒數，HEX1~HEX0 顯示 `SW[6:0]` ASCII 十六進位。
-- `display_show_typing_done(total_rounds, elapsed_ms, ascii)`：打字遊戲完成畫面。LCD 顯示 `Game complete` / `KEY0 OK`，LEDR 顯示滿格題數進度，LEDG7..LEDG0 與 LEDG8 清空，HEX 保留最終時間與 `SW[6:0]` ASCII 欄位。
 - `display_show_blinking_marker(row, word)`：在指定 LCD row 顯示閃爍 marker。函數會將 `word` 自動置中並用 `-` 補滿 16 欄，例如 `END` 會顯示為 `------END-------`。這是 UI hint，不是文件內容。
 - `display_show_top_blinking_marker(word)` / `display_show_bottom_blinking_marker(word)`：對第一列 / 第二列 marker 的語意化 wrapper。
 
@@ -106,7 +105,7 @@ LEDG7..LEDG0 採用類似物件導向的控制方式：外部指定 indicator，
 - Modal 訊息：`main.c` 以 `APP_STATE_INFO_MESSAGE`、`APP_STATE_CONFIRM_MESSAGE`、`APP_STATE_ERROR_MESSAGE` 包裝 display 層的互動訊息。`Save to ROM` 會用一般/錯誤訊息回報結果，`Clear All` 與 dirty `Quit` 會先進確認訊息，EEPROM 載入失敗會進錯誤訊息。
 - EEPROM 載入/儲存等待：`eeprom_*_with_activity()` callback 透過 `display_show_activity_marquee()` 顯示 activity。
 - SD 讀取與檢視：讀取中用 `display_show_message()`，並透過 `sdcard_read_question_text_with_activity()` callback 呼叫 activity marquee；成功後用 `display_show_text_page()`，同時回到 Nios LEDR 控制。
-- 打字遊戲：`main.c` 從首頁進入 `APP_STATE_TYPING_READY`，用 `display_show_action_message()` 提示關閉 `SW[6:0]`。開始後用 SD activity marquee 讀取 `QUESTION.TXT`，`typing_game.c` 從非空行隨機抽 10 題。遊戲中 `editor_input.c` 共用 editor 的 SW/KEY/PS2 輸入派發，但禁用 LF 以維持單行答案；答案完全相符時立即進入下一題；字數達到或超過題目長度但內容不符時，LEDR 使用既有 5 Hz error effect 顯示 2 秒；`KEY0` 開啟 `Quit` / `Restart` / `Continue` 暫停選單。秒表使用 Qsys `timer` 作為 HAL system clock，從第一個 `SW[6:0]` 變化或第一個實際輸入動作開始，暫停選單期間停止累加。
+- 打字遊戲：`main.c` 從首頁進入 `APP_STATE_TYPING_READY`，用 `display_show_action_message()` 提示關閉 `SW[6:0]`。開始後用 SD activity marquee 讀取 `QUESTION.TXT`，`typing_game.c` 從非空行隨機抽 10 題。遊戲中 `editor_input.c` 共用 editor 的 SW/KEY/PS2 輸入派發，但禁用 LF 以維持單行答案；答案完全相符時立即進入下一題；字數達到或超過題目長度但內容不符時，LEDR 使用既有 5 Hz error effect 顯示 2 秒；`KEY0` 開啟 `Quit` / `Restart` / `Continue` 暫停選單。完成後用 `display_show_info_message()` 顯示 `CPM n` 與 `KEY0 OK`，CPM 由 10 題總字元數與完成秒表計算。秒表使用 Qsys `timer` 作為 HAL system clock，從第一個 `SW[6:0]` 變化或第一個實際輸入動作開始，暫停選單期間停止累加。
 - EEPROM editor 主畫面：每輪由 `display_update_with_markers(..., "EEPROM", "END")` 統一刷新，不在 `main.c` 個別操作 LED 或 LCD。
 
 ## 維護檢查

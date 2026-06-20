@@ -1019,29 +1019,6 @@ void display_show_typing_game(const char *question,
 }
 
 /**
- * Show the typing game completion screen while keeping final score outputs.
- */
-void display_show_typing_done(unsigned char total_rounds,
-                              unsigned int elapsed_ms,
-                              unsigned char ascii)
-{
-    char row[LCD_WIDTH];
-
-    display_show_progress_percent(
-        display_round_progress_percent(total_rounds, total_rounds));
-    display_clear_ledg();
-    display_write_typing_status(total_rounds,
-                                total_rounds,
-                                elapsed_ms,
-                                ascii);
-    display_build_center_text(DISPLAY_INFO_OK_TEXT, row);
-
-    lcd_write_line(0, "Game complete", 13);
-    lcd_write_line(1, row, LCD_WIDTH);
-    lcd_hide_cursor();
-}
-
-/**
  * Show an activity marquee on LEDR17..LEDR1.
  */
 void display_show_activity_marquee(unsigned int tick)

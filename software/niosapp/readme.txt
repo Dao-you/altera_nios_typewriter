@@ -58,6 +58,7 @@ INPUTS:
     current question.
   - When the answer is long enough to judge but does not match, LEDR shows the
     existing 5 Hz error blink for two seconds while input remains editable.
+  - After the final answer, the shared OK-message UI shows CPM and KEY0 OK.
   - KEY0 opens the typing-game menu: Quit, Restart, Continue.
 
 OUTPUTS:
@@ -114,6 +115,9 @@ OUTPUTS:
   - HEX5..HEX4: elapsed minutes, decimal.
   - HEX3..HEX2: elapsed seconds, decimal.
   - HEX1..HEX0: current SW[6:0] ASCII input, hexadecimal.
+  - Finish message: "CPM n" on row 1, with the shared centered "KEY0 OK"
+    prompt on row 2. CPM uses the ten selected questions' total character
+    count and the final elapsed time.
 
 SOURCE FILES:
 - main.c: application loop and event dispatch.

@@ -344,6 +344,23 @@ unsigned int typing_game_elapsed_ms(const TypingGame *game)
     return game->elapsed_ms;
 }
 
+unsigned int typing_game_cpm(const TypingGame *game)
+{
+    unsigned int chars;
+    unsigned int i;
+
+    if (game->elapsed_ms == 0u) {
+        return 0;
+    }
+
+    chars = 0;
+    for (i = 0; i < game->total_rounds; ++i) {
+        chars += game->question_len[i];
+    }
+
+    return ((chars * 60000u) + (game->elapsed_ms / 2u)) / game->elapsed_ms;
+}
+
 int typing_game_stopwatch_started(const TypingGame *game)
 {
     return game->timer_started != 0u;

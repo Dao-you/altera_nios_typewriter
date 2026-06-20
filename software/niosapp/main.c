@@ -24,6 +24,7 @@
 #define EDITOR_BOTTOM_MARKER "END"
 #define TYPING_READY_ACTION_TEXT "KEY1GO KEY0EXIT"
 #define TYPING_ERROR_SIGNAL_TICKS 2000u
+#define TYPING_RESULT_MESSAGE_LEN 16u
 
 typedef enum {
     APP_STATE_MENU = 0,
@@ -87,6 +88,7 @@ static unsigned int app_entropy = 0;
 static unsigned int app_typing_last_switch_input = 0;
 static unsigned int app_typing_error_until_tick = 0;
 static unsigned int app_typing_last_mismatch_signature = 0;
+static char app_typing_result_message[TYPING_RESULT_MESSAGE_LEN + 1u];
 static const char *app_modal_message = "";
 static AppState app_modal_return_state = APP_STATE_EDITOR;
 static AppConfirmAction app_confirm_action = APP_CONFIRM_NONE;
@@ -175,6 +177,14 @@ static int app_typing_error_signal_active(unsigned int now_ticks)
     }
 
     return ((int)(now_ticks - app_typing_error_until_tick)) < 0;
+}
+
+static void app_prepare_typing_result_message(void)
+{
+    snprintf(app_typing_result_message,
+             sizeof(app_typing_result_message),
+             "CPM %u",
+             typing_game_cpm(&app_typing_game));
 }
 
 /**
@@ -861,12 +871,10 @@ int main(void)
 
                 if (state == APP_STATE_TYPING_DONE) {
                     typing_game_pause_stopwatch(&app_typing_game, now_ticks);
-                }
-                if (state == APP_STATE_TYPING_DONE) {
-                    display_show_typing_done(
-                        typing_game_total_rounds(&app_typing_game),
-                        typing_game_elapsed_ms(&app_typing_game),
-                        ascii);
+                    app_prepare_typing_result_message();
+                    app_start_info_message(app_typing_result_message,
+                                           APP_STATE_MENU,
+                                           &state);
                 } else {
                     app_display_typing_game(
                         ascii,
@@ -890,13 +898,6 @@ int main(void)
                 app_typing_last_switch_input = switches & SW_TYPING_INPUT_MASK;
                 app_reset_typing_error_signal();
                 state = APP_STATE_TYPING_GAME;
-            }
-        } else if (state == APP_STATE_TYPING_DONE) {
-            display_show_typing_done(typing_game_total_rounds(&app_typing_game),
-                                     typing_game_elapsed_ms(&app_typing_game),
-                                     ascii);
-            if (key_pressed_edge(&keys, KEY_MASK_0)) {
-                state = APP_STATE_MENU;
             }
         } else if (state == APP_STATE_EDITOR_COMMAND) {
             if (key_pressed_edge(&keys, KEY_MASK_2)) {
