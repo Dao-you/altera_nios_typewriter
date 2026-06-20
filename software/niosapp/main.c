@@ -214,10 +214,14 @@ static int app_typing_error_signal_active(unsigned int now_ticks)
 
 static void app_prepare_typing_result_message(void)
 {
+    unsigned int cpm_hundredths;
+
+    cpm_hundredths = typing_game_cpm_hundredths(&app_typing_game);
     snprintf(app_typing_result_message,
              sizeof(app_typing_result_message),
-             "CPM %u",
-             typing_game_cpm(&app_typing_game));
+             "CPM %u.%02u",
+             cpm_hundredths / 100u,
+             cpm_hundredths % 100u);
 }
 
 static unsigned char app_typing_rounds_from_selection(int selection)

@@ -2,6 +2,7 @@
 
 #define TYPING_GAME_MAX_CANDIDATES 64u
 #define TYPING_GAME_DEFAULT_SEED 0x13579BDFu
+#define TYPING_GAME_CPM_SCALE 100u
 
 typedef struct {
     unsigned int start;
@@ -419,10 +420,11 @@ unsigned int typing_game_elapsed_ms(const TypingGame *game)
     return game->elapsed_ms;
 }
 
-unsigned int typing_game_cpm(const TypingGame *game)
+unsigned int typing_game_cpm_hundredths(const TypingGame *game)
 {
     unsigned int chars;
     unsigned int i;
+    unsigned long long scaled_cpm;
 
     if (game->elapsed_ms == 0u) {
         return 0;
@@ -433,7 +435,15 @@ unsigned int typing_game_cpm(const TypingGame *game)
         chars += game->question_len[i];
     }
 
-    return ((chars * 60000u) + (game->elapsed_ms / 2u)) / game->elapsed_ms;
+    scaled_cpm = (((unsigned long long)chars * 60000ull *
+                   TYPING_GAME_CPM_SCALE) +
+                  (game->elapsed_ms / 2u)) /
+        (unsigned long long)game->elapsed_ms;
+    if (scaled_cpm > 0xFFFFFFFFull) {
+        return 0xFFFFFFFFu;
+    }
+
+    return (unsigned int)scaled_cpm;
 }
 
 int typing_game_stopwatch_started(const TypingGame *game)
