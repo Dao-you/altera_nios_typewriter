@@ -397,9 +397,17 @@ static int sd_write_sector(unsigned int lba, const unsigned char *buffer)
     unsigned char response;
 
     sd_report_activity();
+    if (!sd_wait_write_ready()) {
+        sd_spi_deselect();
+        return 0;
+    }
     address = sd_block_addressed ? lba : (lba * SD_BLOCK_SIZE);
     r1 = sd_send_command(SD_CMD_WRITE_SINGLE_BLOCK, address, 0xFFu);
     if (r1 != 0u || sd_spi_error) {
+        sd_spi_deselect();
+        return 0;
+    }
+    if (!sd_wait_write_ready()) {
         sd_spi_deselect();
         return 0;
     }
@@ -784,20 +792,41 @@ static int fat_find_free_cluster(const FatInfo *fs,
     unsigned int cluster;
     unsigned int value;
     unsigned int last_cluster;
+    unsigned int entry_size;
+    unsigned int fat_offset;
+    unsigned int sector_lba;
+    unsigned int sector_offset;
 
     if (start_cluster < 2u) {
         start_cluster = 2u;
     }
     last_cluster = fs->cluster_count + 1u;
+    entry_size = (fs->fat_type == FAT_TYPE_FAT32) ? 4u : 2u;
+    fat_offset = start_cluster * entry_size;
+    sector_lba = fs->fat_lba + (fat_offset / SD_BLOCK_SIZE);
+    sector_offset = fat_offset % SD_BLOCK_SIZE;
 
-    for (cluster = start_cluster; cluster <= last_cluster; ++cluster) {
-        if (!fat_read_fat_entry(fs, cluster, &value)) {
+    cluster = start_cluster;
+    while (cluster <= last_cluster) {
+        if (!sd_read_sector(sector_lba, sd_sector)) {
             return 0;
         }
-        if (value == 0u) {
-            *free_cluster = cluster;
-            return 1;
+        while (sector_offset + entry_size <= SD_BLOCK_SIZE &&
+               cluster <= last_cluster) {
+            if (fs->fat_type == FAT_TYPE_FAT32) {
+                value = le32(&sd_sector[sector_offset]) & 0x0FFFFFFFu;
+            } else {
+                value = le16(&sd_sector[sector_offset]);
+            }
+            if (value == 0u) {
+                *free_cluster = cluster;
+                return 1;
+            }
+            ++cluster;
+            sector_offset += entry_size;
         }
+        ++sector_lba;
+        sector_offset = 0u;
     }
 
     return 0;

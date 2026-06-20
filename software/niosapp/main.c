@@ -1042,7 +1042,7 @@ static int app_handle_typing_game_input(const KeyState *keys,
  */
 int main(void)
 {
-    EditorDocument editor;
+    static EditorDocument editor;
     KeyState keys;
     MenuState start_menu;
     MenuState editor_menu;
