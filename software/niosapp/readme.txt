@@ -56,6 +56,8 @@ INPUTS:
     The PS/2 path also starts it on the first actual input edit.
   - The game advances automatically when the typed answer exactly matches the
     current question.
+  - When the answer is long enough to judge but does not match, LEDR shows the
+    existing 5 Hz error blink for two seconds while input remains editable.
   - KEY0 opens the typing-game menu: Quit, Restart, Continue.
 
 OUTPUTS:
@@ -101,7 +103,11 @@ OUTPUTS:
 - Typing game outputs:
   - LCD row 1: current answer viewport with cursor.
   - LCD row 2: current question viewport.
-  - LEDG7..LEDG0: current-question progress over the ten-question game.
+  - LEDR: current-question progress over the ten-question game. A wrong answer
+    whose length is at least the question length temporarily overrides this
+    with the existing 5 Hz error blink for two seconds.
+  - LEDG7..LEDG0: normal status indicators, including insert mode, navigation
+    mode, and answer viewport overflow.
   - LEDG8: separate one-bit PIO, blinking once per second as the mm:ss colon.
   - HEX7..HEX6: current question number for three seconds, then total question
     count for one second.

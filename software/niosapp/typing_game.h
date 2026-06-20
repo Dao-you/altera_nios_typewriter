@@ -76,6 +76,11 @@ void typing_game_update_stopwatch(TypingGame *game, unsigned int now_ticks);
 TypingGameAnswerResult typing_game_accept_if_answer_correct(TypingGame *game);
 
 /**
+ * Return nonzero when the input is long enough to judge but is not a match.
+ */
+int typing_game_current_answer_is_complete_mismatch(const TypingGame *game);
+
+/**
  * Return nonzero after all loaded rounds are complete.
  */
 int typing_game_is_complete(const TypingGame *game);

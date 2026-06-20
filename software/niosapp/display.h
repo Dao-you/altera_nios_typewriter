@@ -122,7 +122,9 @@ void display_show_typing_game(const char *question,
                               unsigned char current_round,
                               unsigned char total_rounds,
                               unsigned int elapsed_ms,
-                              unsigned char ascii);
+                              unsigned char ascii,
+                              int nav_mode,
+                              int error_signal);
 
 /**
  * Show the typing game completion screen while keeping final score outputs.

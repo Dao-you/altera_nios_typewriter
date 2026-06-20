@@ -210,41 +210,35 @@ static void display_write_ledg8_state(int enabled)
 #endif
 }
 
-static unsigned int display_ledg_progress_mask(unsigned char current,
-                                               unsigned char total)
+static unsigned int display_round_progress_percent(unsigned char current,
+                                                   unsigned char total)
 {
-    unsigned int lit;
-    unsigned int mask;
-    unsigned int i;
+    unsigned int percent;
 
     if (total == 0u || current == 0u) {
         return 0;
     }
     if (current >= total) {
-        lit = 8u;
-    } else {
-        lit = (((unsigned int)current * 8u) + total - 1u) /
-            (unsigned int)total;
-    }
-    if (lit > 8u) {
-        lit = 8u;
+        return 100u;
     }
 
-    mask = 0;
-    for (i = 0; i < lit; ++i) {
-        mask |= 1u << (7u - i);
+    percent = ((unsigned int)current * 100u) / (unsigned int)total;
+    if (percent == 0u) {
+        percent = 1u;
     }
 
-    return mask;
+    return percent;
 }
 
-static void display_show_ledg_progress(unsigned char current,
-                                       unsigned char total,
-                                       unsigned int elapsed_ms)
+static void display_show_typing_ledg_status(const EditorDocument *input,
+                                            int nav_mode,
+                                            int view_start)
 {
-    display_ledg_state = display_ledg_progress_mask(current, total);
-    display_write_ledg_state();
-    display_write_ledg8_state(((elapsed_ms / 1000u) & 0x01u) != 0u);
+    display_clear_ledg();
+    display_set_ledg(DISPLAY_LEDG_INSERT, input->insert_mode);
+    display_set_ledg(DISPLAY_LEDG_NAV_MODE, nav_mode);
+    display_set_ledg(DISPLAY_LEDG_OVERFLOW,
+                     input->line_len[0] > view_start + LCD_WIDTH);
 }
 
 /**
@@ -991,20 +985,29 @@ void display_show_typing_game(const char *question,
                               unsigned char current_round,
                               unsigned char total_rounds,
                               unsigned int elapsed_ms,
-                              unsigned char ascii)
+                              unsigned char ascii,
+                              int nav_mode,
+                              int error_signal)
 {
     char row[LCD_WIDTH];
     int view_start;
     int cursor_col;
 
-    display_write_ledr(0);
-    display_show_ledg_progress(current_round, total_rounds, elapsed_ms);
+    if (error_signal) {
+        display_select_ledr_effect(DISPLAY_LEDR_FLAG_ERROR_BLINK);
+    } else {
+        display_show_progress_percent(
+            display_round_progress_percent(current_round, total_rounds));
+    }
     display_write_typing_status(current_round,
                                 total_rounds,
                                 elapsed_ms,
                                 ascii);
 
     view_start = display_typing_view(input, question_len);
+    display_show_typing_ledg_status(input, nav_mode, view_start);
+    display_write_ledg8_state(((elapsed_ms / 1000u) & 0x01u) != 0u);
+
     display_build_line_view(input, 0, view_start, row);
     lcd_write_line(0, row, LCD_WIDTH);
     display_build_raw_view(question, question_len, view_start, row);
@@ -1024,8 +1027,9 @@ void display_show_typing_done(unsigned char total_rounds,
 {
     char row[LCD_WIDTH];
 
-    display_select_ledr_effect(DISPLAY_LEDR_FLAG_CONFIRM_BLINK);
-    display_show_ledg_progress(total_rounds, total_rounds, elapsed_ms);
+    display_show_progress_percent(
+        display_round_progress_percent(total_rounds, total_rounds));
+    display_clear_ledg();
     display_write_typing_status(total_rounds,
                                 total_rounds,
                                 elapsed_ms,

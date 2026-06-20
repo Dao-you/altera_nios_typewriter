@@ -281,6 +281,25 @@ TypingGameAnswerResult typing_game_accept_if_answer_correct(TypingGame *game)
 }
 
 /**
+ * Return nonzero when the input is long enough to judge but is not a match.
+ */
+int typing_game_current_answer_is_complete_mismatch(const TypingGame *game)
+{
+    unsigned int round;
+
+    if (typing_game_is_complete(game)) {
+        return 0;
+    }
+
+    round = game->current_round;
+    if (game->input.line_len[0] < game->question_len[round]) {
+        return 0;
+    }
+
+    return !typing_game_current_answer_matches(game);
+}
+
+/**
  * Return nonzero after all loaded rounds are complete.
  */
 int typing_game_is_complete(const TypingGame *game)
