@@ -23,7 +23,7 @@
 - 文件先存在 C 程式的 Document Buffer，後續寫入 DE2-115 板上 24LC32 類 EEPROM。
 - PS/2 鍵盤由 Verilog 接收 scan code 並轉成 ASCII / editor control byte，透過 Qsys PIO FIFO 介面交給 Nios II C 程式，原本 SW/KEY 測試輸入仍保留。
 - SD 卡先以 Qsys `altera_avalon_spi` SPI mode 做只讀測試；開機選單確認 `SD QUESTION` 會嘗試讀 FAT16/FAT32 根目錄短檔名 `QUESTION.TXT` 並在 LCD 顯示內容，`KEY0` 返回首頁選單，不實作 SD 寫入。
-- 打字速度遊戲從開機選單 `TYPING GAME` 進入。LCD 先提示關閉 `SW[6:0]`，`KEY1` 開始、`KEY0` 返回；開始時從 SD `QUESTION.TXT` 非空行隨機抽 10 題，讀取期間使用 loading 燈號。遊戲中共用 editor 的 SW/KEY/PS/2 輸入派發，但答案限制為單行，完全輸入正確後自動進下一題；字數達到或超過題目長度但內容不符時，LEDR 顯示 2 秒既有 5 Hz error effect；`KEY0` 進入 `Quit` / `Restart` / `Continue` 暫停選單。LCD 第一列顯示輸入、第二列顯示題目；秒表使用 Qsys `timer` 作為 HAL system clock，從第一個 `SW[6:0]` 變化或第一個實際輸入動作開始。LEDR 顯示題數進度，LEDG7..LEDG0 保持 Insert / 移動模式 / overflow 等狀態燈，獨立 `LEDG8` 每秒閃爍作為 `mm:ss` 冒號；HEX7~HEX6 每四秒循環顯示三秒目前題號與一秒總題數，HEX5~HEX4 顯示分鐘，HEX3~HEX2 顯示秒數，HEX1~HEX0 顯示 `SW[6:0]` 十六進位。完成後以一般 UI 訊息顯示 `CPM n` 與 `KEY0 OK`，按 `KEY0` 回首頁。
+- 打字速度遊戲從開機選單 `TYPING GAME` 進入。先用共用選單選題目大小寫模式：`Capitalized` 會將字母轉小寫後把第一個字母轉大寫，`Default` 保留題目原文，`Random Caps` 會將字母轉小寫後在 runtime 隨機把每個字母轉大寫；非字母不轉換，各選單最後都有 `Quit`。接著用共用選單選題目數量，5 題一級距、最多 50 題。選完後 LCD 提示關閉 `SW[6:0]`，`KEY1` 開始、`KEY0` 返回；開始時從 SD `QUESTION.TXT` 非空行隨機抽取所選題數，讀取期間使用 loading 燈號。遊戲中共用 editor 的 SW/KEY/PS/2 輸入派發，但答案限制為單行，完全輸入正確後自動進下一題；字數達到或超過題目長度但內容不符時，LEDR 顯示 2 秒既有 5 Hz error effect；`KEY0` 進入 `Restart` / `Continue` / `Quit` 暫停選單。LCD 第一列顯示輸入、第二列顯示題目；秒表使用 Qsys `timer` 作為 HAL system clock，從第一個 `SW[6:0]` 變化或第一個實際輸入動作開始。LEDR 顯示題數進度，LEDG7..LEDG0 保持 Insert / 移動模式 / overflow 等狀態燈，獨立 `LEDG8` 每秒閃爍作為 `mm:ss` 冒號；HEX7~HEX6 每四秒循環顯示三秒目前題號與一秒總題數，HEX5~HEX4 顯示分鐘，HEX3~HEX2 顯示秒數，HEX1~HEX0 顯示 `SW[6:0]` 十六進位。完成後以一般 UI 訊息顯示 `CPM n` 與 `KEY0 OK`，按 `KEY0` 回首頁。
 
 ## 目前狀態
 
@@ -51,7 +51,7 @@
 - `main.c`：開機選單與主迴圈狀態切換；開機時提供選項列表給 `menu.c`，確認後進入 EEPROM/editor、SD `QUESTION.TXT` 讀取測試畫面或打字遊戲；editor 內 `KEY0` 進入 `:VI COMMAND` command mode，再可用 `KEY2` 進入 editor 選單；`KEY1` 寫入，`KEY2/KEY3` 移動。
 - `editor.c/.h`：固定大小 `EditorDocument`、Insert / Overwrite、BS、LF、DEL、左右上下移動、清除目前行、清除全文、移到文件開頭/結尾、dirty flag、序列化 / 反序列化。
 - `editor_input.c/.h`：共用 SW/KEY 與 PS/2 decoded byte 到 `EditorDocument` 的派發；EEPROM editor 允許 LF，打字遊戲重用同一派發但禁用 LF。
-- `typing_game.c/.h`：打字遊戲題庫抽樣、單行答案比對、回合狀態、restart 與 Qsys timer 秒表狀態。
+- `typing_game.c/.h`：打字遊戲題庫抽樣、大小寫模式轉換、單行答案比對、回合狀態、restart 與 Qsys timer 秒表狀態。
 - `menu.c/.h`：共用 LCD 選單狀態機；呼叫端只提供 null-terminated 選項列表，`KEY3` / `KEY2` 左右移動，`KEY0` 確認並回傳 option index；需要第 0 頁時可用 `menu_update_with_left_edge()` 在第一個選項按 `KEY3` 時回呼呼叫端，並讓第一個選項也顯示左箭頭提示可回第 0 頁。
 - `display.c/.h`：LEDR、LEDG、HEX、LCD 更新；HEX7~HEX2 使用十進位，HEX1~HEX0 顯示 ASCII 十六進位；LCD 支援一般 editor viewport、打字遊戲輸入/題目 viewport、通用 top/bottom boundary marker、VI command page、上下列閃爍 marker、互動式一般/確認/錯誤訊息；共用選單畫面第一列顯示選項名稱，第二列用 `<` / `>` 與十進位 `目前/總數` 顯示位置，LEDR 顯示選項位置進度條；VI command page 使用 LEDR 2 Hz 全燈閃爍；EEPROM 讀寫、SD 讀取與打字遊戲載入期間顯示 LEDR 跑馬燈；打字遊戲中 `PIO_OUT_LEDG8_BASE` 獨立控制 `LEDG8` 秒閃冒號。
 - `lcd.c/.h`：LCD1602 8-bit PIO bit-bang、兩行文字更新、LCD 內建 cursor 模式切換。
@@ -365,12 +365,12 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - 開機選單確認 `EEPROM EDITOR` 進入原本 EEPROM/editor 流程，若 EEPROM 有有效文件會載入，否則空白文件開始。
 - 開機選單確認 `SD QUESTION` 會讀 SD 卡 FAT16/FAT32 根目錄短檔名 `QUESTION.TXT`；成功後 LCD 以兩列顯示內容，`KEY2/KEY3` 捲動，`KEY1` 可重新讀檔，`KEY0` 返回首頁選單。
 - 從 EEPROM editor、SD 題目檢視或打字遊戲返回首頁選單時，HEX0~HEX7 會由 `main.c` 的外層首頁 transition 統一清空，不保留功能畫面的行號、ASCII、題號或秒表狀態。
-- 開機選單確認 `TYPING GAME` 會先顯示 `SW6-0 OFF` 與 `KEY1GO KEY0EXIT`；`SW[6:0]` 全關後按 `KEY1` 讀取 SD `QUESTION.TXT` 並隨機抽 10 題，讀取期間 LEDR 使用 activity marquee。若題目不足 10 行，顯示錯誤訊息。
+- 開機選單確認 `TYPING GAME` 會先進大小寫模式選單：`Capitalized`、`Default`、`Random Caps`、`Quit`；再進題數選單：`5 Questions` 到 `50 Questions`，以 5 題為級距，最後一項 `Quit`。選完後顯示 `SW6-0 OFF` 與 `KEY1GO KEY0EXIT`；`SW[6:0]` 全關後按 `KEY1` 讀取 SD `QUESTION.TXT` 並隨機抽取所選題數，讀取期間 LEDR 使用 activity marquee。若題目不足所選題數，顯示錯誤訊息。
 - 打字遊戲中 LCD 第一列顯示輸入 viewport 與 cursor、第二列顯示題目 viewport；使用者可用 SW[6:0]+KEY1 或 PS/2 鍵盤輸入，Backspace/Delete 與左右移動可修正答案，LF/Enter 不會建立新行；答案完全相同後立即自動進入下一題。
 - 打字遊戲中秒表從第一個 `SW[6:0]` 變化或第一個實際輸入動作開始；LEDR 依目前題號顯示進度，LEDG7..LEDG0 保持 Insert / 移動模式 / overflow 等狀態燈，獨立 LEDG8 每秒閃爍作為冒號；HEX7~HEX6 每四秒循環顯示三秒目前題號與一秒總題數，HEX5~HEX4 顯示分鐘，HEX3~HEX2 顯示秒數，HEX1~HEX0 顯示 `SW[6:0]` 十六進位。
 - 打字遊戲中若輸入字數已達到或超過目前題目長度但內容不相符，LEDR 會暫時切到既有 5 Hz 錯誤閃爍 2 秒；使用者可繼續用 Backspace/Delete 或移動游標修正輸入。
-- 打字遊戲中按 `KEY0` 進入 `Quit` / `Restart` / `Continue` 選單；`Restart` 保留目前抽出的 10 題並歸零時間，`Quit` 回首頁，`Continue` 回遊戲且不累加暫停期間時間。
-- 打字遊戲完成後以一般 UI 訊息顯示 `CPM n` 與置中的 `KEY0 OK`；CPM 由本輪 10 題總字元數與完成秒表計算，按 `KEY0` 回首頁。
+- 打字遊戲中按 `KEY0` 進入 `Restart` / `Continue` / `Quit` 選單；`Restart` 保留目前抽出的題目並歸零時間，`Continue` 回遊戲且不累加暫停期間時間，`Quit` 回首頁。
+- 打字遊戲完成後以一般 UI 訊息顯示 `CPM n` 與置中的 `KEY0 OK`；CPM 由本輪所選題目總字元數與完成秒表計算，按 `KEY0` 回首頁。
 - editor 主畫面按 `KEY0` 進入 `:VI COMMAND` command mode；空指令返回 editor，`w` 存檔，`q` 離開，`wq` / `x` 存檔後離開，`e!` restore whole。若 dirty 時執行 `q`，會以確認訊息提示 `Quit no save?`。
 - command mode 按 `KEY2` 進入 editor 選單；選單可用 `KEY3` / `KEY2` 左右切換 `Save to ROM`、`Quit`、`Restore whole`、`Clear this line`、`Clear All`、`Move to head`、`Move to end`、`Cancel`，按 `KEY0` 確認；在 `Save to ROM` 按 `KEY3` 會回到 command mode。
 - editor 選單確認 `Quit` 時，若 dirty 會以確認訊息提示 `Quit no save?`；確認 `Restore whole` 會重新讀取 EEPROM 內整份文件；確認 `Cancel` 會直接返回 editor。確認 `Clear this line` 會清空目前行並將游標移到該行開頭；確認 `Clear All` 會重設成單一空白行；確認 `Move to head` / `Move to end` 只移動游標，不設定 dirty。

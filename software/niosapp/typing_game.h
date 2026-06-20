@@ -3,8 +3,17 @@
 
 #include "editor.h"
 
-#define TYPING_GAME_ROUNDS 10u
+#define TYPING_GAME_DEFAULT_ROUNDS 10u
+#define TYPING_GAME_MIN_ROUNDS 5u
+#define TYPING_GAME_MAX_ROUNDS 50u
+#define TYPING_GAME_ROUND_STEP 5u
 #define TYPING_GAME_MAX_QUESTION_LEN LINE_LEN
+
+typedef enum {
+    TYPING_GAME_CASE_TITLE = 0,
+    TYPING_GAME_CASE_DEFAULT,
+    TYPING_GAME_CASE_RANDOM
+} TypingGameCaseMode;
 
 typedef enum {
     TYPING_GAME_LOAD_OK = 0,
@@ -19,8 +28,8 @@ typedef enum {
 
 typedef struct {
     EditorDocument input;
-    char questions[TYPING_GAME_ROUNDS][TYPING_GAME_MAX_QUESTION_LEN + 1u];
-    unsigned char question_len[TYPING_GAME_ROUNDS];
+    char questions[TYPING_GAME_MAX_ROUNDS][TYPING_GAME_MAX_QUESTION_LEN + 1u];
+    unsigned char question_len[TYPING_GAME_MAX_ROUNDS];
     unsigned char current_round;
     unsigned char total_rounds;
     unsigned int elapsed_ms;
@@ -35,7 +44,7 @@ typedef struct {
 void typing_game_init(TypingGame *game);
 
 /**
- * Load ten random non-empty lines from SD QUESTION.TXT contents.
+ * Load random non-empty lines from SD QUESTION.TXT contents.
  *
  * Lines longer than TYPING_GAME_MAX_QUESTION_LEN are truncated to fit the
  * shared one-line EditorDocument input buffer.
@@ -43,10 +52,12 @@ void typing_game_init(TypingGame *game);
 TypingGameLoadResult typing_game_load_questions(TypingGame *game,
                                                 const char *text,
                                                 unsigned int length,
+                                                unsigned char round_count,
+                                                TypingGameCaseMode case_mode,
                                                 unsigned int seed);
 
 /**
- * Restart the currently loaded ten-question game without reshuffling.
+ * Restart the currently loaded game without reshuffling.
  */
 void typing_game_restart(TypingGame *game);
 

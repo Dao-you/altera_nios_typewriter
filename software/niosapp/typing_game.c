@@ -24,6 +24,41 @@ static unsigned int typing_game_next_random(unsigned int *state)
     return x;
 }
 
+static int typing_game_is_alpha(char ch)
+{
+    return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
+}
+
+static char typing_game_to_lower(char ch)
+{
+    if (ch >= 'A' && ch <= 'Z') {
+        return (char)(ch + ('a' - 'A'));
+    }
+
+    return ch;
+}
+
+static char typing_game_to_upper(char ch)
+{
+    if (ch >= 'a' && ch <= 'z') {
+        return (char)(ch - ('a' - 'A'));
+    }
+
+    return ch;
+}
+
+static unsigned char typing_game_normalize_round_count(unsigned char count)
+{
+    if (count < TYPING_GAME_MIN_ROUNDS) {
+        return TYPING_GAME_MIN_ROUNDS;
+    }
+    if (count > TYPING_GAME_MAX_ROUNDS) {
+        return TYPING_GAME_MAX_ROUNDS;
+    }
+
+    return count;
+}
+
 static unsigned int typing_game_line_length(const char *text,
                                             unsigned int start,
                                             unsigned int end)
@@ -88,10 +123,44 @@ static void typing_game_copy_question(TypingGame *game,
     game->question_len[round] = ref->length;
 }
 
+static void typing_game_apply_case_mode(TypingGame *game,
+                                        unsigned int round,
+                                        TypingGameCaseMode case_mode,
+                                        unsigned int *seed)
+{
+    unsigned int i;
+    int first_alpha_done;
+    char ch;
+
+    if (case_mode == TYPING_GAME_CASE_DEFAULT) {
+        return;
+    }
+
+    first_alpha_done = 0;
+    for (i = 0; i < game->question_len[round]; ++i) {
+        ch = game->questions[round][i];
+        if (!typing_game_is_alpha(ch)) {
+            continue;
+        }
+
+        ch = typing_game_to_lower(ch);
+        if (case_mode == TYPING_GAME_CASE_TITLE) {
+            if (!first_alpha_done) {
+                ch = typing_game_to_upper(ch);
+                first_alpha_done = 1;
+            }
+        } else if ((typing_game_next_random(seed) & 0x01u) != 0u) {
+            ch = typing_game_to_upper(ch);
+        }
+        game->questions[round][i] = ch;
+    }
+}
+
 static void typing_game_pick_questions(TypingGame *game,
                                        const char *text,
                                        TypingQuestionRef *refs,
                                        unsigned int ref_count,
+                                       TypingGameCaseMode case_mode,
                                        unsigned int seed)
 {
     unsigned int i;
@@ -102,12 +171,13 @@ static void typing_game_pick_questions(TypingGame *game,
         seed = TYPING_GAME_DEFAULT_SEED;
     }
 
-    for (i = 0; i < TYPING_GAME_ROUNDS; ++i) {
+    for (i = 0; i < game->total_rounds; ++i) {
         j = i + (typing_game_next_random(&seed) % (ref_count - i));
         tmp = refs[i];
         refs[i] = refs[j];
         refs[j] = tmp;
         typing_game_copy_question(game, i, text, &refs[i]);
+        typing_game_apply_case_mode(game, i, case_mode, &seed);
     }
 }
 
@@ -119,12 +189,12 @@ void typing_game_init(TypingGame *game)
     unsigned int i;
 
     editor_init(&game->input);
-    for (i = 0; i < TYPING_GAME_ROUNDS; ++i) {
+    for (i = 0; i < TYPING_GAME_MAX_ROUNDS; ++i) {
         game->questions[i][0] = '\0';
         game->question_len[i] = 0;
     }
     game->current_round = 0;
-    game->total_rounds = TYPING_GAME_ROUNDS;
+    game->total_rounds = TYPING_GAME_DEFAULT_ROUNDS;
     game->elapsed_ms = 0;
     game->last_tick = 0;
     game->timer_started = 0;
@@ -132,32 +202,37 @@ void typing_game_init(TypingGame *game)
 }
 
 /**
- * Load ten random non-empty lines from SD QUESTION.TXT contents.
+ * Load random non-empty lines from SD QUESTION.TXT contents.
  */
 TypingGameLoadResult typing_game_load_questions(TypingGame *game,
                                                 const char *text,
                                                 unsigned int length,
+                                                unsigned char round_count,
+                                                TypingGameCaseMode case_mode,
                                                 unsigned int seed)
 {
     TypingQuestionRef refs[TYPING_GAME_MAX_CANDIDATES];
     unsigned int ref_count;
+    unsigned char normalized_rounds;
 
     typing_game_init(game);
+    normalized_rounds = typing_game_normalize_round_count(round_count);
+    game->total_rounds = normalized_rounds;
     ref_count = typing_game_collect_question_refs(text,
                                                   length,
                                                   refs,
                                                   TYPING_GAME_MAX_CANDIDATES);
-    if (ref_count < TYPING_GAME_ROUNDS) {
+    if (ref_count < normalized_rounds) {
         return TYPING_GAME_LOAD_NOT_ENOUGH_LINES;
     }
 
-    typing_game_pick_questions(game, text, refs, ref_count, seed);
+    typing_game_pick_questions(game, text, refs, ref_count, case_mode, seed);
     typing_game_restart(game);
     return TYPING_GAME_LOAD_OK;
 }
 
 /**
- * Restart the currently loaded ten-question game without reshuffling.
+ * Restart the currently loaded game without reshuffling.
  */
 void typing_game_restart(TypingGame *game)
 {

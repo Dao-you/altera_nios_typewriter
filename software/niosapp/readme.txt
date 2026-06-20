@@ -44,11 +44,19 @@ INPUTS:
   - KEY0: enter the EEPROM-backed text editor.
 - Typing game:
   - Starts from the TYPING GAME startup-menu option.
+  - First selects a question case mode through the shared menu: Capitalized,
+    Default, Random Caps, and Quit. Capitalized lowercases letters and
+    uppercases the first letter; Default keeps the file text; Random Caps
+    lowercases letters and randomly uppercases each letter at runtime.
+    Non-letters are not converted.
+  - Then selects the question count through the shared menu, from 5 Questions
+    to 50 Questions in steps of 5, with Quit as the final option.
   - The ready screen asks for SW[6:0] to be off. KEY1 starts only when those
     switches are clear; KEY0 returns to the startup menu.
-  - On start, QUESTION.TXT is read from SD and ten non-empty lines are selected
-    randomly. Each line is one question; lines longer than 99 characters are
-    truncated to match the shared editor line buffer.
+  - On start, QUESTION.TXT is read from SD and the selected number of
+    non-empty lines are selected randomly. Each line is one question; lines
+    longer than 99 characters are truncated to match the shared editor line
+    buffer.
   - Input uses the same SW[6:0] + KEY1 and PS/2 printable-key path as the text
     editor. Backspace/Delete and left/right movement work through the shared
     editor input dispatcher. LF/Enter is ignored so each answer stays one line.
@@ -59,7 +67,7 @@ INPUTS:
   - When the answer is long enough to judge but does not match, LEDR shows the
     existing 5 Hz error blink for two seconds while input remains editable.
   - After the final answer, the shared OK-message UI shows CPM and KEY0 OK.
-  - KEY0 opens the typing-game menu: Quit, Restart, Continue.
+  - KEY0 opens the typing-game menu: Restart, Continue, Quit.
 
 OUTPUTS:
 - Menu LCD: first row shows the selected option name. The second row uses
@@ -104,9 +112,9 @@ OUTPUTS:
 - Typing game outputs:
   - LCD row 1: current answer viewport with cursor.
   - LCD row 2: current question viewport.
-  - LEDR: current-question progress over the ten-question game. A wrong answer
-    whose length is at least the question length temporarily overrides this
-    with the existing 5 Hz error blink for two seconds.
+  - LEDR: current-question progress over the selected question count. A wrong
+    answer whose length is at least the question length temporarily overrides
+    this with the existing 5 Hz error blink for two seconds.
   - LEDG7..LEDG0: normal status indicators, including insert mode, navigation
     mode, and answer viewport overflow.
   - LEDG8: separate one-bit PIO, blinking once per second as the mm:ss colon.
@@ -116,7 +124,7 @@ OUTPUTS:
   - HEX3..HEX2: elapsed seconds, decimal.
   - HEX1..HEX0: current SW[6:0] ASCII input, hexadecimal.
   - Finish message: "CPM n" on row 1, with the shared centered "KEY0 OK"
-    prompt on row 2. CPM uses the ten selected questions' total character
+    prompt on row 2. CPM uses the selected questions' total character
     count and the final elapsed time.
 
 SOURCE FILES:
@@ -132,8 +140,9 @@ SOURCE FILES:
 - editor_input.c/.h: shared dispatch from debounced SW/KEY and PS/2 decoded
   bytes into EditorDocument operations. The EEPROM editor allows LF; the typing
   game reuses the same path with LF disabled for single-line answers.
-- typing_game.c/.h: typing-game question sampling, answer comparison, round
-  state, restart, and Qsys-timer-backed stopwatch state.
+- typing_game.c/.h: typing-game question sampling, case-mode conversion,
+  answer comparison, round state, restart, and Qsys-timer-backed stopwatch
+  state.
 - key.c/.h: active-low key debounce and edge detection.
 - display.c/.h, lcd.c/.h, seven_seg.c/.h: board display output.
   display.c centralizes LEDR progress, activity marquee, modal messages,
