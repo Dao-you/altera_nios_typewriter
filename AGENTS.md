@@ -22,7 +22,7 @@
 - LEDG 顯示模式、目前 LCD 視窗右側是否還有未顯示內容、unsaved 狀態。
 - 文件先存在 C 程式的 Document Buffer，後續寫入 DE2-115 板上 24LC32 類 EEPROM。
 - PS/2 鍵盤由 Verilog 接收 scan code 並轉成 ASCII / editor control byte，透過 Qsys PIO FIFO 介面交給 Nios II C 程式，原本 SW/KEY 測試輸入仍保留。
-- SD 卡先以 Qsys `altera_avalon_spi` SPI mode 做只讀測試；開機選單確認 `SD QUESTION` 會嘗試讀 FAT16/FAT32 根目錄短檔名 `QUESTION.TXT` 並在 LCD 顯示內容，不實作 SD 寫入。
+- SD 卡先以 Qsys `altera_avalon_spi` SPI mode 做只讀測試；開機選單確認 `SD QUESTION` 會嘗試讀 FAT16/FAT32 根目錄短檔名 `QUESTION.TXT` 並在 LCD 顯示內容，`KEY0` 返回首頁選單，不實作 SD 寫入。
 - 打字速度遊戲從開機選單 `TYPING GAME` 進入。LCD 先提示關閉 `SW[6:0]`，`KEY1` 開始、`KEY0` 返回；開始時從 SD `QUESTION.TXT` 非空行隨機抽 10 題，讀取期間使用 loading 燈號。遊戲中共用 editor 的 SW/KEY/PS/2 輸入派發，但答案限制為單行，完全輸入正確後自動進下一題；字數達到或超過題目長度但內容不符時，LEDR 顯示 2 秒既有 5 Hz error effect；`KEY0` 進入 `Quit` / `Restart` / `Continue` 暫停選單。LCD 第一列顯示輸入、第二列顯示題目；秒表使用 Qsys `timer` 作為 HAL system clock，從第一個 `SW[6:0]` 變化或第一個實際輸入動作開始。LEDR 顯示題數進度，LEDG7..LEDG0 保持 Insert / 移動模式 / overflow 等狀態燈，獨立 `LEDG8` 每秒閃爍作為 `mm:ss` 冒號；HEX7~HEX6 每四秒循環顯示三秒目前題號與一秒總題數，HEX5~HEX4 顯示分鐘，HEX3~HEX2 顯示秒數，HEX1~HEX0 顯示 `SW[6:0]` 十六進位。完成後以一般 UI 訊息顯示 `CPM n` 與 `KEY0 OK`，按 `KEY0` 回首頁。
 
 ## 目前狀態
@@ -363,7 +363,8 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - 開機 LCD 顯示共用選單：第一列為目前選項名稱，第二列中央為十進位 `1/2` 類 counter；若左側仍有選項，第二列第二格顯示 `<`；若右側仍有選項，第二列倒數第二格顯示 `>`。
 - 開機選單按 `KEY3` / `KEY2` 可左右切換 `EEPROM EDITOR`、`SD QUESTION` 與 `TYPING GAME`，按 `KEY0` 確認。
 - 開機選單確認 `EEPROM EDITOR` 進入原本 EEPROM/editor 流程，若 EEPROM 有有效文件會載入，否則空白文件開始。
-- 開機選單確認 `SD QUESTION` 會讀 SD 卡 FAT16/FAT32 根目錄短檔名 `QUESTION.TXT`；成功後 LCD 以兩列顯示內容，`KEY2/KEY3` 捲動，`KEY1` 可重新讀檔，`KEY0` 可切回 EEPROM/editor。
+- 開機選單確認 `SD QUESTION` 會讀 SD 卡 FAT16/FAT32 根目錄短檔名 `QUESTION.TXT`；成功後 LCD 以兩列顯示內容，`KEY2/KEY3` 捲動，`KEY1` 可重新讀檔，`KEY0` 返回首頁選單。
+- 從 EEPROM editor、SD 題目檢視或打字遊戲返回首頁選單時，HEX0~HEX7 會由 `main.c` 的外層首頁 transition 統一清空，不保留功能畫面的行號、ASCII、題號或秒表狀態。
 - 開機選單確認 `TYPING GAME` 會先顯示 `SW6-0 OFF` 與 `KEY1GO KEY0EXIT`；`SW[6:0]` 全關後按 `KEY1` 讀取 SD `QUESTION.TXT` 並隨機抽 10 題，讀取期間 LEDR 使用 activity marquee。若題目不足 10 行，顯示錯誤訊息。
 - 打字遊戲中 LCD 第一列顯示輸入 viewport 與 cursor、第二列顯示題目 viewport；使用者可用 SW[6:0]+KEY1 或 PS/2 鍵盤輸入，Backspace/Delete 與左右移動可修正答案，LF/Enter 不會建立新行；答案完全相同後立即自動進入下一題。
 - 打字遊戲中秒表從第一個 `SW[6:0]` 變化或第一個實際輸入動作開始；LEDR 依目前題號顯示進度，LEDG7..LEDG0 保持 Insert / 移動模式 / overflow 等狀態燈，獨立 LEDG8 每秒閃爍作為冒號；HEX7~HEX6 每四秒循環顯示三秒目前題號與一秒總題數，HEX5~HEX4 顯示分鐘，HEX3~HEX2 顯示秒數，HEX1~HEX0 顯示 `SW[6:0]` 十六進位。

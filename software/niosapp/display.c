@@ -280,9 +280,9 @@ void display_show_progress_percent(unsigned int percent)
 }
 
 /**
- * Initialize LCD and clear all display PIO outputs.
+ * Clear every HEX display through the display controller.
  */
-void display_init(void)
+void display_clear_hex(void)
 {
     display_write_hex(PIO_OUT_HEX0_BASE, seven_seg_blank());
     display_write_hex(PIO_OUT_HEX1_BASE, seven_seg_blank());
@@ -292,6 +292,14 @@ void display_init(void)
     display_write_hex(PIO_OUT_HEX5_BASE, seven_seg_blank());
     display_write_hex(PIO_OUT_HEX6_BASE, seven_seg_blank());
     display_write_hex(PIO_OUT_HEX7_BASE, seven_seg_blank());
+}
+
+/**
+ * Initialize LCD and clear all display PIO outputs.
+ */
+void display_init(void)
+{
+    display_clear_hex();
     display_write_ledr(0);
     display_clear_ledg();
     display_lcd_view_start = 0;

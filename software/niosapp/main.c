@@ -199,6 +199,23 @@ static void app_show_blocking_activity(unsigned int tick, void *context)
     display_show_activity_marquee(tick);
 }
 
+static void app_enter_home_menu(AppState *state)
+{
+    display_clear_hex();
+    if (state != 0) {
+        *state = APP_STATE_MENU;
+    }
+}
+
+static void app_set_state(AppState *state, AppState next_state)
+{
+    if (next_state == APP_STATE_MENU) {
+        app_enter_home_menu(state);
+    } else if (state != 0) {
+        *state = next_state;
+    }
+}
+
 static void app_reset_vi_command(void)
 {
     app_vi_command_len = 0;
@@ -306,7 +323,7 @@ static void app_quit_editor(EditorDocument *editor,
         *eeprom_error = 0;
     }
     app_reset_vi_command();
-    *state = APP_STATE_MENU;
+    app_enter_home_menu(state);
 }
 
 static void app_start_quit_no_save_confirm(AppState *state)
@@ -444,7 +461,7 @@ static void app_handle_confirm_yes(EditorDocument *editor,
     }
 
     app_confirm_action = APP_CONFIRM_NONE;
-    *state = app_modal_return_state;
+    app_set_state(state, app_modal_return_state);
 }
 
 static char app_vi_lower_char(char ch)
@@ -743,7 +760,7 @@ int main(void)
     app_reset_typing_error_signal();
     eeprom_error = 0;
     editor_loaded = 0;
-    state = APP_STATE_MENU;
+    app_enter_home_menu(&state);
 
     while (1) {
         ++app_entropy;
@@ -780,12 +797,12 @@ int main(void)
         } else if (state == APP_STATE_INFO_MESSAGE) {
             display_show_info_message(app_modal_message);
             if (key_pressed_edge(&keys, KEY_MASK_0)) {
-                state = app_modal_return_state;
+                app_set_state(&state, app_modal_return_state);
             }
         } else if (state == APP_STATE_ERROR_MESSAGE) {
             display_show_error_message(app_modal_message);
             if (key_pressed_edge(&keys, KEY_MASK_0)) {
-                state = app_modal_return_state;
+                app_set_state(&state, app_modal_return_state);
             }
         } else if (state == APP_STATE_CONFIRM_MESSAGE) {
             display_show_confirm_message(app_modal_message);
@@ -796,21 +813,11 @@ int main(void)
                                        &eeprom_error);
             } else if (key_pressed_edge(&keys, KEY_MASK_0)) {
                 app_confirm_action = APP_CONFIRM_NONE;
-                state = app_modal_return_state;
+                app_set_state(&state, app_modal_return_state);
             }
         } else if (state == APP_STATE_SD_VIEW) {
             if (key_pressed_edge(&keys, KEY_MASK_0)) {
-                if (!editor_loaded) {
-                    eeprom_error = app_load_eeprom_document(&editor);
-                    editor_loaded = 1;
-                }
-                if (eeprom_error) {
-                    app_start_error_message("EEPROM load fail",
-                                            APP_STATE_EDITOR,
-                                            &state);
-                } else {
-                    state = APP_STATE_EDITOR;
-                }
+                app_enter_home_menu(&state);
             } else {
                 if (key_pressed_edge(&keys, KEY_MASK_1)) {
                     app_load_sd_question();
@@ -829,7 +836,7 @@ int main(void)
             display_show_action_message("SW6-0 OFF",
                                         TYPING_READY_ACTION_TEXT);
             if (key_pressed_edge(&keys, KEY_MASK_0)) {
-                state = APP_STATE_MENU;
+                app_enter_home_menu(&state);
             } else if (key_pressed_edge(&keys, KEY_MASK_1) &&
                        (switches & SW_TYPING_READY_CLEAR_MASK) == 0u) {
                 if (app_load_typing_game(app_entropy ^ switches, &state)) {
@@ -886,7 +893,7 @@ int main(void)
             menu_selection = menu_update(&typing_menu, &keys);
             if (menu_selection == TYPING_MENU_QUIT) {
                 app_reset_typing_error_signal();
-                state = APP_STATE_MENU;
+                app_enter_home_menu(&state);
             } else if (menu_selection == TYPING_MENU_RESTART) {
                 typing_game_restart(&app_typing_game);
                 app_typing_last_switch_input = switches & SW_TYPING_INPUT_MASK;

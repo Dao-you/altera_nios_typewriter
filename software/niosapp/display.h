@@ -33,6 +33,11 @@ typedef enum {
 void display_init(void);
 
 /**
+ * Clear every HEX display through the display controller.
+ */
+void display_clear_hex(void);
+
+/**
  * Update LEDR, LEDG, HEX0-HEX7, and LCD from the current editor state.
  */
 void display_update(const EditorDocument *editor,
