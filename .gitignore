@@ -77,3 +77,6 @@ Desktop.ini
 *.tmp
 *.temp
 /tmp/
+
+# Machine-local Nios II tool path config for tracked helper scripts
+/scripts/nios/local.env.ps1

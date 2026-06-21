@@ -310,6 +310,28 @@ DE2-115 板上 EEPROM 規劃以 24LC32 類 32 Kbit 裝置為準：
 
 ## 建議開發流程
 
+### Nios 自動化腳本
+
+可提交的自動化腳本放在 `scripts/nios/`。腳本會依照自身所在位置找回專案根目錄，因此可以從任意工作目錄執行。
+
+本機工具路徑不要寫入 tracked 文件。若需要固定 Nios II command shell 位置，複製 `scripts/nios/local.env.example.ps1` 為 `scripts/nios/local.env.ps1`，並在 local env 裡設定：
+
+```powershell
+$env:NIOS2_COMMAND_SHELL = "<path-to-Nios-II-Command-Shell.bat>"
+```
+
+`scripts/nios/local.env.ps1` 已由 `.gitignore` 忽略，專門放本機安裝路徑。若只在目前 PowerShell session 執行 `$env:NIOS2_COMMAND_SHELL = ...`，關掉 terminal 或重開機後不會保留；需要跨 session 可使用 `local.env.ps1`，或由使用者自行設定永久 User environment variable。
+
+腳本尋找 Nios II command shell 的順序是：命令列 `-NiosShell` 參數、`local.env.ps1` / `NIOS2_COMMAND_SHELL` 環境變數、常見 Altera/Intel FPGA 安裝根目錄。找不到時才要求使用者補路徑。
+
+目前腳本用途：
+
+- `scripts/nios/01-qsys-quartus-program.ps1`：執行 `qsys-generate`、`quartus_sh --flow compile`，並用 `quartus_pgm` program `.sof`；若只要 generate/compile，可加 `-SkipProgram`。
+- `scripts/nios/02-bsp-generate.ps1`：依目前 `nios.sopcinfo` 重新產生 `software/niosapp_bsp`。
+- `scripts/nios/03-build-run-nios.ps1`：在 `software/niosapp` 執行 `make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= all`，再用 `nios2-download -g` run `niosapp.elf`；若只要 build，可加 `-NoRun`，若只要原本 app target，可加 `-MakeTarget app`。
+
+改 Qsys/memory map 後建議順序為 `01` -> `02` -> `03`。只改 Nios C app 時通常只需要跑 `03`；若只改 C 且 hardware bitstream 沒變，`03` 會假設板上已經是相容的 `.sof`。
+
 每次改 Qsys：
 
 1. 在 Qsys/Platform Designer 修改 `nios.qsys`。
