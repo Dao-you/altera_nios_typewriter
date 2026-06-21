@@ -21,7 +21,7 @@ flowchart LR
     Top --> PS2[ps2_keyboard_controller]
     Top --> LEDR[ledr_flag_controller]
     Nios --> C[software/niosapp C 程式]
-    C --> UI[display.c UI framework]
+    C --> UI[display.c reusable UI framework]
     C --> Editor[EditorDocument]
     C --> SD[sdcard.c FAT16/FAT32]
     C --> EEPROM[eeprom.c I2C]
@@ -204,7 +204,7 @@ flowchart TB
 - `main.c`：AppState 主狀態機，整合首頁、editor、SD view、typing game、modal message。
 - `editor.c/.h`：`EditorDocument`、文字插入/覆蓋/刪除/換行/移動、序列化。
 - `editor_input.c/.h`：把 SW/KEY/PS2 byte 轉成 editor action。
-- `display.c/.h`：UI facade，統一控制 LEDR、LEDG、HEX、LCD。
+- `display.c/.h`：可重用 UI 畫面框架，提供選單、訊息、確認、錯誤、閃爍 marker、loading 跑馬燈、editor viewport、typing game 畫面等共用顯示元件。
 - `menu.c/.h`：共用水平選單。
 - `lcd.c/.h`：LCD1602 8-bit PIO driver。
 - `key.c/.h`：KEY debounce 與 edge detection。
@@ -274,14 +274,44 @@ flowchart LR
 
 ## 9. UI framework 設計理念
 
-UI 集中在 `display.c/.h`，功能模組不直接寫 LED/LCD/HEX PIO，而是呼叫語意化 API。
+本專案的 UI framework 不是單純把 LCD、HEX、LEDR、LEDG 的輸出集中到 `display.c`，而是設計了一組**可重用的顯示畫面與互動樣式**。不同功能不需要各自重寫 LCD 排版、LED 狀態、七段顯示或等待提示，而是呼叫已經定義好的 UI pattern，讓整個系統看起來像同一套介面。
+
+```mermaid
+flowchart TB
+    Feature[main.c / editor / SD / EEPROM / typing game] --> API[display.c reusable UI APIs]
+
+    API --> Menu[水平選單畫面]
+    API --> Modal[Info / Confirm / Error 訊息畫面]
+    API --> Marker[閃爍 top / bottom marker]
+    API --> Loading[Loading / blocking activity 跑馬燈]
+    API --> EditorView[Editor viewport 顯示]
+    API --> TextPage[SD text page 兩列檢視]
+    API --> TypingView[Typing game 專用畫面]
+
+    API --> LCD[LCD1602]
+    API --> HEX[HEX0~HEX7]
+    API --> LEDR[LEDR progress / effect]
+    API --> LEDG[LEDG 狀態燈]
+```
+
+這套 UI framework 的重點是「畫面元件化」：
+
+- **選單畫面**：`display_show_menu_item()` 與 `display_show_menu_item_with_left_edge()` 提供共用水平選單顯示。LCD 第一列顯示選項名稱，第二列顯示左右箭頭與 `目前/總數`，LEDR 同步顯示選單位置進度。
+- **訊息畫面**：`display_show_info_message()`、`display_show_confirm_message()`、`display_show_error_message()` 提供一致的 modal message。不同功能只要傳入訊息內容，不必各自設計 `KEY0 OK`、`KEY1YES KEY0NO` 或錯誤閃爍。
+- **閃爍字樣**：`display_show_blinking_marker()`、`display_show_top_blinking_marker()`、`display_show_bottom_blinking_marker()` 提供可重用的閃爍 marker，例如 `EEPROM`、`SD`、`END`。這些 marker 是 UI hint，不是文件內容。
+- **Loading / activity 畫面**：`display_show_activity_marquee()` 提供 blocking I/O 期間的共用等待提示。EEPROM 與 SD card 讀寫都透過 callback 呼叫它；若 LEDR flag hardware 存在，跑馬燈由 Verilog 持續產生。
+- **Editor viewport**：`display_update_with_markers()` 統一處理目前行、下一行、水平捲動、cursor mode、top marker、bottom marker、HEX 與 LEDG 狀態。
+- **文字檢視畫面**：`display_show_text_page()` 提供 SD `QUESTION.TXT` 的兩列文字瀏覽畫面。
+- **Typing game 畫面**：`display_show_typing_game()` 重用 editor viewport 概念，但改成第一列顯示輸入、第二列顯示題目，並同步輸出題號、時間、錯誤提示與秒閃 LEDG8。
+
+因此，`display.c/.h` 在架構上的角色比較接近一個小型 UI component library。`main.c`、`sdcard.c`、`eeprom.c`、`typing_game.c` 等功能模組只決定「現在要顯示哪一種畫面」，實際 LCD 排版、LED 效果、HEX 欄位與 cursor 行為都由 display framework 統一處理。
 
 Editor 模式顯示：
 
 | 輸出 | 內容 |
 |---|---|
-| LCD row0 | 目前行 viewport |
-| LCD row1 | 下一行或 `END` marker |
+| LCD row0 | 目前行 viewport，或 top marker |
+| LCD row1 | 下一行、目前行或 `END` marker |
 | HEX7~6 | 目前行號 |
 | HEX5~4 | 游標欄位 |
 | HEX3~2 | 總行數 |
@@ -374,7 +404,7 @@ Typing game 從 SD `QUESTION.TXT` 讀題目，最多支援 50 題。題目來源
 
 1. 硬體與軟體分工清楚：Verilog 處理 PS/2 timing 與 LEDR blocking animation，C 處理 UI、editor、SD/FAT、typing game。
 2. 同一份 `EditorDocument` 被 EEPROM editor、SD editor、typing game input 重用。
-3. `display.c` 作為 UI facade，避免各功能模組直接操作 PIO。
+3. `display.c/.h` 是可重用 UI 畫面框架，將選單、閃爍字樣、loading 跑馬燈、modal message、editor viewport、typing game display 等畫面 pattern 提供給不同功能呼叫。
 4. SD card 不是 raw sector demo，而是支援 FAT16/FAT32 root directory 讀寫固定短檔名。
 5. blocking I/O 期間仍能由 Verilog LEDR controller 顯示 activity marquee。
 6. PS/2 keyboard 透過 FIFO 與 PIO handshake 接入 Nios，保留 SW/KEY 測試輸入。
