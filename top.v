@@ -66,9 +66,10 @@ module top (
 
     wire reset_n;
 
-    // SW[15] is the board-level reset: SW15=0 resets Nios II, SW15=1 runs.
+    // SW[14] is the board-level reset: SW14=0 resets Nios II, SW14=1 runs.
+    // SW[15] is read by software to enable or disable PS/2 keyboard input.
     // SW[16] remains available to software for Insert / Overwrite mode.
-    assign reset_n = SW[15];
+    assign reset_n = SW[14];
 
     assign HEX0 = hex0_export[6:0];
     assign HEX1 = hex1_export[6:0];

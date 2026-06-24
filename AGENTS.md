@@ -63,7 +63,8 @@
 
 重要差異：
 
-- `top.v` 目前將 `SW[15]` 接成整個 Nios 系統的 active-low `reset_n` 來源：`SW15=0` reset，`SW15=1` run。
+- `top.v` 目前將 `SW[14]` 接成整個 Nios 系統的 active-low `reset_n` 來源：`SW14=0` reset，`SW14=1` run。
+- `SW15` 控制是否允許 PS/2 鍵盤輸入：`0` 時 C 端清除並忽略鍵盤 FIFO，`1` 時正常接受輸入。
 - `SW16` 已保留給文字編輯器 Insert / Overwrite 模式，不要再拿來當 reset。
 - `hello_world.c` 已移除；目前 app 入口在 `main.c`。
 - 目前 `system.h` 顯示 BSP system timer 已設定為 Qsys `timer`：`ALT_SYS_CLK TIMER`。打字遊戲秒表可用 `alt_nticks()`；一般短延遲仍可用 `alt_busy_sleep()`。
@@ -140,7 +141,7 @@
 目前重要接線：
 
 - `CLOCK_50` 接 Qsys clock。
-- `SW[15]` 產生 `reset_n`。
+- `SW[14]` 產生 `reset_n`；`SW15` 由 C 程式讀取作為 PS/2 鍵盤輸入 enable。
 - `PS2_CLK` / `PS2_DAT` 接 `ps2_keyboard_controller`，再以 keyboard data/status/ack PIO 對接 Nios。
 - `SD_CLK` / `SD_CMD` / `SD_DAT[3:0]` 接 Qsys `spi_sdcard_external_*`，目前用 SD SPI mode：`SCLK -> SD_CLK`、`MOSI -> SD_CMD`、`MISO <- SD_DAT[0]`、`SS_n -> SD_DAT[3]`，`SD_DAT[1]` / `SD_DAT[2]` 先 release high-Z，`SD_WP_N` 只保留為 top-level input。
 - `SW[17:0]` 全部輸入 Nios PIO；C 端使用 `SW17` 作為移動模式、`SW16` 作為 Insert / Overwrite、`SW[6:0]` 作為 ASCII。
@@ -361,7 +362,7 @@ PS/2 Verilog 相關檔案若尚未在 Quartus GUI 中出現，需加入以下 pr
 
 1. 確認 port 名稱與 `EP4.qsf` pin assignment 完全一致。
 2. 確認 Qsys instance port 名稱和 `qsys_verilog_example.v` / generated HDL 一致。
-3. 不要破壞 `SW[15]` reset，除非同步更新 AGENTS.md 和操作說明。
+3. 不要破壞 `SW[14]` reset，除非同步更新 AGENTS.md 和操作說明。
 4. Compile Quartus，至少確認 analysis/synthesis 與 full flow 沒有 fatal error。
 
 每次改 C 程式：
@@ -404,7 +405,8 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - SD editor 選單確認 `Save` 會覆寫 SD 根目錄 `EDITOR.TXT` 並清除 dirty；確認 `Save as EEPROM` 會先顯示 `Overwrite ROM?`，`KEY1` 確認覆寫 EEPROM、`KEY0` 取消。成功後顯示 `Saved to EEPROM`，但不清除 SD editor 對 SD primary storage 的 dirty 狀態。
 - `SW[6:0]` 可讀出並在 HEX1~HEX0 顯示 ASCII hex。
 - `SW[6:0] = 0x08` 時 KEY1 執行 BS，且游標在行頭時會刪除上一行 LF 並合併行；`0x0A` 時 KEY1 執行 LF，`0x7F` 時 KEY1 執行 DEL。
-- `SW[15]` 為 reset：`0` reset，`1` run。
+- `SW[14]` 為 reset：`0` reset，`1` run。
+- `SW[15]` 為 PS/2 鍵盤輸入 enable：`0` 忽略，`1` 接受。
 - `SW[16]` 可即時切換 Overwrite / Insert，且 LEDG0 反映目前模式。
 - KEY active-low 反相與 edge detection 正確，一次按下只觸發一次。
 - HEX active-low 顯示正確，未用位可 blank。
@@ -431,7 +433,7 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - Nios app stack/heap 預算很緊；`EditorDocument` 與 EEPROM/SD 文字暫存都是 3KB 等級，主 editor 文件應維持 static storage，避免同時放多份大型 local buffer，並以 linker 的 free stack/heap 報告確認。
 - 目前已有 Qsys `timer` peripheral 並設定為 HAL system clock；若重新產生 BSP 後 `ALT_SYS_CLK` 變回 `none`，需用 `nios2-bsp-update-settings --set hal.sys_clk_timer timer` 修正後再 build。
 - `UART_RXD` / `UART_TXD` 目前不是 Nios UART；除錯先用 JTAG UART。
-- `SW[15]` 是 reset；`SW[16]` 是 Insert / Overwrite；文字編輯器也使用 `SW[17]` 和 `SW[6:0]`。
+- `SW[14]` 是 reset；`SW[15]` 是 PS/2 鍵盤輸入 enable；`SW[16]` 是 Insert / Overwrite；文字編輯器也使用 `SW[17]` 和 `SW[6:0]`。
 - Qsys 新增或重新排序 PIO 後一定要更新 BSP；只重新 Generate HDL 不會更新 `software/niosapp_bsp/system.h`。
 - 新增 `pio_out_ledr_flag` 後需重新 Generate HDL 並更新 BSP；否則 `top.v` 會找不到新的 Qsys wrapper port，或 C 端沒有 `PIO_OUT_LEDR_FLAG_BASE` 而只能使用 fallback 軟體跑馬燈。
 - 若 SD 測試只顯示 `Update BSP first`，代表 C app 是用尚未包含 `SPI_SDCARD_BASE` 的舊 BSP 編出來；先更新 `software/niosapp_bsp` 再 build app。

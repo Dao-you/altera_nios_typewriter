@@ -78,7 +78,7 @@ flowchart LR
     end
 
     subgraph TOP[top.v]
-        RST[reset_n = SW15]
+        RST[reset_n = SW14]
         NIOS[nios u0]
         KBDCTRL[ps2_keyboard_controller]
         LEDRCTRL[ledr_flag_controller]
@@ -112,7 +112,8 @@ flowchart LR
 
 重點接線與設計理由如下：
 
-- `reset_n = SW[15]`，也就是 `SW15=0` reset，`SW15=1` run。這種做法讓 reset 不佔用 KEY，方便 KEY 全部拿來做互動操作。
+- `reset_n = SW[14]`，也就是 `SW14=0` reset，`SW14=1` run。這種做法讓 reset 不佔用 KEY，方便 KEY 全部拿來做互動操作。
+- `SW15` 由 `keyboard.c` 當作 PS/2 keyboard enable；關閉時會清除並忽略 FIFO 內容，重新開啟後不會補送停用期間的按鍵。
 - `SW[17:0]` 全部輸入 Nios PIO。C 端再切出不同用途：`SW[6:0]` 是 7-bit ASCII；`SW16` 是 Insert / Overwrite；`SW17` 是左右移動或上下移動的 nav mode。
 - `KEY[3:0]` 輸入 Nios PIO。DE2-115 的 KEY 通常是 active-low，因此 C 端 `key.c` 會先反相，再做 debounce 與 pressed-edge 偵測，避免長按或機械彈跳造成多次觸發。
 - `LEDR[17:0]` 不直接由 Nios PIO 接到板子，而是先進入 `ledr_flag_controller`。這樣可以在一般情況讓 C 控制 LEDR progress，也可以在 SD/EEPROM blocking I/O 期間切換給 Verilog 產生硬體跑馬燈。

@@ -11,7 +11,8 @@ INPUTS:
   - KEY1: confirm the selected option.
   - Options: EEPROM EDITOR, SD EDITOR, SD QUESTIONS, TYPING GAME.
 - SW[6:0]: 7-bit ASCII input.
-- SW15: active-low Nios II reset, 0 = reset and 1 = run.
+- SW14: active-low Nios II reset, 0 = reset and 1 = run.
+- SW15: PS/2 keyboard input enable, 0 = discard/ignore and 1 = accept.
 - SW16: edit mode, 0 = overwrite and 1 = insert.
 - SW17: navigation mode, 0 = left/right and 1 = up/down.
 - Editor mode:

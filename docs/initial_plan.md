@@ -36,7 +36,8 @@ EEPROM 儲存
 | ------------ | --------------------- | ----------------------------- |
 | `CLOCK_50`   | 系統時脈                  | 提供 Nios II 與周邊運作時脈            |
 | `SW[6:0]`    | ASCII 字元輸入            | 輸入 7-bit ASCII，包含空白、BS、LF、DEL |
-| `SW15`       | Nios II reset          | `0`：reset，`1`：run               |
+| `SW14`       | Nios II reset          | `0`：reset，`1`：run               |
+| `SW15`       | PS/2 keyboard enable   | `0`：忽略輸入，`1`：接受輸入      |
 | `SW16`       | Insert / Overwrite 切換 | `0`：Overwrite，`1`：Insert        |
 | `SW17`       | 移動模式切換                | `0`：左右移動，`1`：上下移動             |
 | `KEY0` / PS/2 `Esc` | Editor menu | 在 editor 可輸入文字畫面開啟共用選單；依目前 editor 來源執行 EEPROM / SD 儲存選項 |
