@@ -50,9 +50,13 @@ module top (
     wire [7:0] keyboard_data_export;
     wire [7:0] keyboard_status_export;
     wire keyboard_ack_export;
+    wire keyboard_detected;
+    wire keyboard_activity;
+    wire keyboard_caps_lock;
 
     wire [17:0] ledr_export;
     wire [7:0] ledr_flag_export;
+    wire [7:0] ledg_export;
     wire ledg8_export;
 
     wire sd_miso;
@@ -113,7 +117,10 @@ module top (
         .ps2_dat(PS2_DAT),
         .keyboard_ack(keyboard_ack_export),
         .keyboard_data(keyboard_data_export),
-        .keyboard_status(keyboard_status_export)
+        .keyboard_status(keyboard_status_export),
+        .keyboard_detected(keyboard_detected),
+        .keyboard_activity(keyboard_activity),
+        .keyboard_caps_lock(keyboard_caps_lock)
     );
 
     nios u0 (
@@ -133,7 +140,7 @@ module top (
         .pio_out_hex2_external_connection_export        (hex2_export),
         .pio_out_hex1_external_connection_export        (hex1_export),
         .pio_out_hex0_external_connection_export        (hex0_export),
-        .pio_out_ledg_external_connection_export        (LEDG[7:0]),
+        .pio_out_ledg_external_connection_export        (ledg_export),
         .pio_out_ledg8_external_connection_export       (ledg8_export),
         .pio_out_ledr_external_connection_export        (ledr_export),
         .pio_in_key_external_connection_export          (KEY),
@@ -148,6 +155,11 @@ module top (
         .pio_out_ledr_flag_external_connection_export   (ledr_flag_export)
     );
 
+    assign LEDG[1:0] = ledg_export[1:0];
+    assign LEDG[2] = keyboard_detected;
+    assign LEDG[3] = keyboard_activity;
+    assign LEDG[4] = keyboard_caps_lock;
+    assign LEDG[7:5] = ledg_export[7:5];
     assign LEDG[8] = ledg8_export;
 
 endmodule

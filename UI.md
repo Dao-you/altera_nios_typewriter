@@ -23,7 +23,7 @@
 
 ### 畫面初始化與 editor 主畫面
 
-- `display_init()`：初始化 LCD，清空 HEX、LEDR、LEDG，重設 display 內部狀態。
+- `display_init()`：初始化 LCD，清空 HEX、LEDR、軟體控制的 LEDG 與 LEDG8，重設 display 內部狀態。PS/2 硬體控制的 LEDG2~LEDG4 只會由 board reset 與鍵盤狀態改變。
 - `display_clear_hex()`：清空 HEX0~HEX7。首頁選單本身不顯示 editor 行號或打字遊戲時間，回首頁時由 `main.c` 的外層狀態切換統一呼叫，避免功能畫面的七段狀態留在首頁。
 - `display_update(editor, ascii, nav_mode, eeprom_error)`：editor 主畫面預設入口。會更新 LEDR 文件位置、LEDG 狀態、HEX 數字、LCD 目前行/下一行與 cursor mode，並以 `END` 作為文件最後一行後方的 bottom marker。Insert 模式的底線 cursor 由 `lcd.c` 軟體閃爍；Overwrite 模式使用 LCD 內建整格閃爍 cursor。需要 EEPROM / SD 來源 marker 時，呼叫 `display_update_with_markers()` 並由 `main.c` 傳入 `EEPROM` 或 `SD`。
 - `display_update_with_markers(editor, ascii, nav_mode, eeprom_error, top_marker, bottom_marker)`：editor viewport 的通用 marker 入口。`top_marker` 是文件第 0 行前方的閃爍 boundary marker；游標在第 0 行時第一列顯示 marker、第二列顯示第 0 行並放置 LCD cursor，游標離開第 0 行後 marker 會離開可視範圍。`bottom_marker` 是文件最後一行後方的閃爍 boundary marker，`END` 也由此機制顯示。
@@ -39,7 +39,7 @@
 - `display_show_error_message(message)`：第一列顯示錯誤訊息，第二列置中 `KEY0 OK`，等待呼叫端用 `KEY0` 返回，LEDR 使用 5 Hz 全燈閃爍。
 - `display_show_action_message(message, action_text)`：第一列顯示訊息，第二列顯示自訂按鍵提示，LEDR 使用 2 Hz 全燈閃爍。打字遊戲開始前的 `SW6-0 OFF` / `KEY1GO KEY0EXIT` 使用這個入口。
 - `display_show_text_page(text, length, first_line)`：將 newline-delimited 文字以兩列 LCD 顯示，現在用於 SD `QUESTION.TXT` 測試畫面。
-- `display_show_typing_game(question, question_len, input, current_round, total_rounds, elapsed_ms, ascii, nav_mode, error_signal)`：打字遊戲主畫面。LCD 第一列顯示共用 `EditorDocument` 輸入 viewport，第二列顯示題目 viewport，兩列共用同一個水平捲動起點；LCD cursor 放在第一列輸入位置。LEDR 顯示目前題號進度；若 `error_signal` 非 0，LEDR 暫時切成既有 5 Hz 錯誤閃爍。LEDG7..LEDG0 保持一般狀態燈語意，顯示 Insert、移動模式與輸入列右側 overflow；獨立 `LEDG8` 依秒數閃爍作為 `mm:ss` 冒號提示；HEX7~HEX6 每四秒循環顯示三秒目前題號與一秒總題數，HEX5~HEX4 顯示分鐘，HEX3~HEX2 顯示秒數，HEX1~HEX0 顯示 `SW[6:0]` ASCII 十六進位。
+- `display_show_typing_game(question, question_len, input, current_round, total_rounds, elapsed_ms, ascii, nav_mode, error_signal)`：打字遊戲主畫面。LCD 第一列顯示共用 `EditorDocument` 輸入 viewport，第二列顯示題目 viewport，兩列共用同一個水平捲動起點；LCD cursor 放在第一列輸入位置。LEDR 顯示目前題號進度；若 `error_signal` 非 0，LEDR 暫時切成既有 5 Hz 錯誤閃爍。軟體控制的 LEDG0、LEDG1、LEDG6 顯示 Insert、移動模式與輸入列右側 overflow；LEDG2~LEDG4 持續由 PS/2 硬體狀態控制；獨立 `LEDG8` 依秒數閃爍作為 `mm:ss` 冒號提示；HEX7~HEX6 每四秒循環顯示三秒目前題號與一秒總題數，HEX5~HEX4 顯示分鐘，HEX3~HEX2 顯示秒數，HEX1~HEX0 顯示 `SW[6:0]` ASCII 十六進位。
 - `display_show_blinking_marker(row, word)`：在指定 LCD row 顯示閃爍 marker。函數會將 `word` 自動置中並用 `-` 補滿 16 欄，例如 `END` 會顯示為 `------END-------`。這是 UI hint，不是文件內容。
 - `display_show_top_blinking_marker(word)` / `display_show_bottom_blinking_marker(word)`：對第一列 / 第二列 marker 的語意化 wrapper。
 
@@ -72,22 +72,25 @@
 
 ### LEDG
 
-LEDG7..LEDG0 採用類似物件導向的控制方式：外部指定 indicator，不直接組 bit mask。LEDG8 不屬於這組狀態燈，Qsys 以獨立 1-bit `pio_out_ledg8` PIO 匯出，display 層只把它用作打字遊戲的秒閃冒號。
+LEDG0、LEDG1、LEDG5、LEDG6、LEDG7 由 Nios `pio_out_ledg` PIO 與 display 層控制。LEDG2~LEDG4 在 `top.v` 改接 `ps2_keyboard_controller`，不受 display 層清除或畫面切換影響。LEDG8 不屬於上述狀態燈，Qsys 以獨立 1-bit `pio_out_ledg8` PIO 匯出，display 層只把它用作打字遊戲的秒閃冒號。
 
 - `display_set_ledg(indicator, enabled)`：設定或清除單一 LEDG indicator。
-- `display_clear_ledg()`：清空所有 LEDG7..LEDG0 indicator，並關閉獨立 LEDG8。
+- `display_clear_ledg()`：清空 Nios PIO 的軟體 LEDG 狀態並關閉獨立 LEDG8；實體 LEDG2~LEDG4 仍由 PS/2 controller 輸出。
 
 目前 indicator 定義在 `display.h`：
 
 - `DISPLAY_LEDG_INSERT`：LEDG0，Insert mode。
 - `DISPLAY_LEDG_NAV_MODE`：LEDG1，上下移動模式。
+- LEDG2：PS/2 keyboard detected。reset 後收到第一個有效 PS/2 frame 即保持亮燈；目前 receive-only 接法無法在完全無傳輸時主動偵測拔除。
+- LEDG3：PS/2 input activity。每次收到有效 PS/2 frame 後亮約 100 ms，讓短暫輸入可被肉眼看見。
+- LEDG4：PS/2 Caps Lock 狀態，隨 parser 的 Caps Lock toggle 狀態亮滅。
 - `DISPLAY_LEDG_EEPROM_ERROR`：LEDG5，目前 editor storage error。EEPROM editor 中代表 EEPROM 讀寫錯誤；SD editor 中代表 SD `EDITOR.TXT` 讀寫或文字截斷錯誤。
 - `DISPLAY_LEDG_OVERFLOW`：LEDG6，目前 LCD viewport 右側還有未顯示文字。
 - `DISPLAY_LEDG_DIRTY`：LEDG7，文件有 unsaved changes。
 
-新增 LEDG 狀態時，請先在 `DisplayLedgIndicator` enum 加入明確名稱，再由 `display.c` 統一寫出，不要在功能流程直接寫 `PIO_OUT_LEDG_BASE`。
+新增 Nios 軟體控制的 LEDG 狀態時，請先在 `DisplayLedgIndicator` enum 加入明確名稱，再由 `display.c` 統一寫出，不要在功能流程直接寫 `PIO_OUT_LEDG_BASE`。硬體即時狀態則需在 `top.v` 明確切分 ownership，避免同一實體 LED 同時由 PIO 與 Verilog 驅動。
 
-打字遊戲不使用 LEDG7..LEDG0 題數進度；題數進度仍走 LEDR progress bar。遊戲畫面中的 LEDG7..LEDG0 保持一般狀態燈語意，目前會顯示 LEDG0 Insert、LEDG1 移動模式、LEDG6 輸入列右側 overflow。`LEDG8` 由 `PIO_OUT_LEDG8_BASE` 獨立控制，每秒切換一次作為時間冒號提示。離開遊戲畫面後，其他 display API 會重新清空或設定一般 LEDG indicator，並關閉 LEDG8。
+打字遊戲不使用 LEDG 題數進度；題數進度仍走 LEDR progress bar。遊戲畫面中 LEDG0、LEDG1、LEDG6 顯示 Insert、移動模式、輸入列右側 overflow，LEDG2~LEDG4 保持 PS/2 detected/activity/Caps Lock 語意。`LEDG8` 由 `PIO_OUT_LEDG8_BASE` 獨立控制，每秒切換一次作為時間冒號提示。離開遊戲畫面後，其他 display API 會重新清空或設定軟體 indicator，並關閉 LEDG8。
 
 ## 新增 UI 功能流程
 
@@ -102,12 +105,12 @@ LEDG7..LEDG0 採用類似物件導向的控制方式：外部指定 indicator，
 ## 現有畫面分工
 
 - 開機選單：`main.c` 提供 `EEPROM EDITOR` / `SD EDITOR` / `SD QUESTIONS` / `TYPING GAME` 選項列表給 `menu.c`；`KEY3` / `KEY2` 移動，`KEY1` 確認。
-- Editor command / 選單：在 editor 主畫面按 `KEY0` 後，`main.c` 先進 `APP_STATE_EDITOR_COMMAND`，用 `display_show_vi_command()` 顯示 `:VI COMMAND`。空指令返回、`w` 存到目前 editor 的 primary storage、`q` 離開、`wq` / `x` 存檔後離開、`e!` restore whole；`KEY2` 進入水平選單。EEPROM editor 水平選單提供 `Save to ROM` / `Save as SD` / `Quit` / `Restore whole` / `Clear this line` / `Clear All` / `Move to head` / `Move to end` / `Cancel`；SD editor 水平選單提供 `Save` / `Save as EEPROM` / `Quit` / `Restore whole` / `Clear this line` / `Clear All` / `Move to head` / `Move to end` / `Cancel`。兩者都用 `menu_update_with_left_edge()` 讓第一個選項再按 `KEY3` 回 command page。
+- Editor command / 選單：在 editor 主畫面按 `KEY0` 後，`main.c` 先進 `APP_STATE_EDITOR_COMMAND`，用 `display_show_vi_command()` 顯示 `:VI COMMAND`。空指令返回、`w` 存到目前 editor 的 primary storage、`q` 離開、`wq` / `x` 存檔後離開、`e!` restore whole；`KEY2` 進入水平選單。PS/2 Esc 在 editor 主畫面或 VI command 畫面會直接開啟同一個水平選單。EEPROM editor 水平選單提供 `Save to ROM` / `Save as SD` / `Quit` / `Restore whole` / `Clear this line` / `Clear All` / `Move to head` / `Move to end` / `Cancel`；SD editor 水平選單提供 `Save` / `Save as EEPROM` / `Quit` / `Restore whole` / `Clear this line` / `Clear All` / `Move to head` / `Move to end` / `Cancel`。兩者都用 `menu_update_with_left_edge()` 讓第一個選項再按 `KEY3` 回 command page。
 - Modal 訊息：`main.c` 以 `APP_STATE_INFO_MESSAGE`、`APP_STATE_CONFIRM_MESSAGE`、`APP_STATE_ERROR_MESSAGE` 包裝 display 層的互動訊息。Primary `Save` / `Save to ROM` 會用一般/錯誤訊息回報結果，`Save as SD` 遇到既有 `EDITOR.TXT` 時用 `Overwrite SD?` confirmation，SD editor 的 `Save as EEPROM` 用 `Overwrite ROM?` confirmation，`Clear All` 與 dirty `Quit` 也會先進確認訊息。
 - EEPROM 載入/儲存等待：`eeprom_*_with_activity()` callback 透過 `display_show_activity_marquee()` 顯示 activity。
 - SD 讀寫與檢視：讀取/寫入中用 `display_show_message()`，並透過 `sdcard_*_with_activity()` callback 呼叫 activity marquee。`SD QUESTIONS` 成功後用 `display_show_text_page()` 顯示 `QUESTION.TXT`，讀取失敗時使用 `display_show_error_message()` 與 5 Hz 錯誤閃爍；`SD EDITOR` 則把 `EDITOR.TXT` 匯入共用 `EditorDocument` 並走一般 editor UI。SD 題目檢視中 `KEY1` 重新讀檔，`KEY0` 返回首頁選單，不再隱含切回 EEPROM editor。
 - 回首頁：editor quit、SD 題目檢視 `KEY0`、打字遊戲模式/題數選單 `Quit`、打字遊戲 ready 取消、打字遊戲暫停選單 `Quit`、以及打字遊戲完成訊息返回首頁時，都經由 `main.c` 的外層首頁 transition 清空 HEX0~HEX7。
-- 打字遊戲：`main.c` 從首頁先進大小寫模式選單，再進題數選單。大小寫選項為 `Capitalized`、`Default`、`Random Caps`、`Quit`；題數選項為 `5 Questions` 到 `50 Questions`，以 5 題為級距，最後一項 `Quit`。選完後才進 `APP_STATE_TYPING_READY`，用 `display_show_action_message()` 提示關閉 `SW[6:0]`。開始後用 SD activity marquee 讀取 `QUESTION.TXT`，`typing_game.c` 從非空行隨機抽取所選題數，並在題庫層套用大小寫模式：`Capitalized` 只轉換字母為小寫並將第一個字母轉大寫，`Default` 保留原文，`Random Caps` 先轉小寫再 runtime 隨機把每個字母轉大寫，非字母皆不轉換。遊戲中 `editor_input.c` 共用 editor 的 SW/KEY/PS2 輸入派發，但禁用 LF 以維持單行答案；答案完全相符時立即進入下一題；字數達到或超過題目長度但內容不符時，LEDR 使用既有 5 Hz error effect 顯示 2 秒；`KEY0` 開啟 `Restart` / `Continue` / `Quit` 暫停選單。完成後用 `display_show_info_message()` 顯示 `CPM n.nn` 與 `KEY0 OK`，CPM 由所選題目總字元數與完成秒表計算並四捨五入到小數點後兩位。秒表使用 Qsys `timer` 作為 HAL system clock，從第一個 `SW[6:0]` 變化或第一個實際輸入動作開始，暫停選單期間停止累加。
+- 打字遊戲：`main.c` 從首頁先進大小寫模式選單，再進題數選單。大小寫選項為 `Capitalized`、`Default`、`Random Caps`、`Quit`；題數選項為 `5 Questions` 到 `50 Questions`，以 5 題為級距，最後一項 `Quit`。選完後才進 `APP_STATE_TYPING_READY`，用 `display_show_action_message()` 提示關閉 `SW[6:0]`。開始後用 SD activity marquee 讀取 `QUESTION.TXT`，`typing_game.c` 從非空行隨機抽取所選題數，並在題庫層套用大小寫模式：`Capitalized` 只轉換字母為小寫並將第一個字母轉大寫，`Default` 保留原文，`Random Caps` 先轉小寫再 runtime 隨機把每個字母轉大寫，非字母皆不轉換。遊戲中 `editor_input.c` 共用 editor 的 SW/KEY/PS2 輸入派發，但禁用 LF 以維持單行答案；答案完全相符時立即進入下一題；字數達到或超過題目長度但內容不符時，LEDR 使用既有 5 Hz error effect 顯示 2 秒；`KEY0` 或 PS/2 Esc 開啟 `Restart` / `Continue` / `Quit` 暫停選單。完成後用 `display_show_info_message()` 顯示 `CPM n.nn` 與 `KEY0 OK`，CPM 由所選題目總字元數與完成秒表計算並四捨五入到小數點後兩位。秒表使用 Qsys `timer` 作為 HAL system clock，從第一個 `SW[6:0]` 變化或第一個實際輸入動作開始，暫停選單期間停止累加。
 - EEPROM editor 主畫面：每輪由 `display_update_with_markers(..., "EEPROM", "END")` 統一刷新，不在 `main.c` 個別操作 LED 或 LCD。
 - SD editor 主畫面：每輪由 `display_update_with_markers(..., "SD", "END")` 統一刷新，和 EEPROM editor 共用輸入、cursor、HEX、LEDR progress、LEDG dirty/overflow 狀態。
 

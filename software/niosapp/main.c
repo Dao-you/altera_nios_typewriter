@@ -355,6 +355,24 @@ static void app_start_vi_command(AppState *state)
     *state = APP_STATE_EDITOR_COMMAND;
 }
 
+static int app_state_accepts_keyboard_text(AppState state)
+{
+    return state == APP_STATE_EDITOR ||
+           state == APP_STATE_EDITOR_COMMAND ||
+           state == APP_STATE_TYPING_GAME;
+}
+
+static void app_discard_keyboard_input(void)
+{
+    unsigned char code;
+    unsigned int count;
+
+    count = 0u;
+    while (count < KEYBOARD_DRAIN_LIMIT && keyboard_read(&code)) {
+        ++count;
+    }
+}
+
 static void app_return_to_vi_command(void *context)
 {
     AppState *state;
@@ -895,11 +913,11 @@ static void app_handle_vi_command_code(EditorDocument *editor,
     }
 }
 
-static void app_handle_vi_keyboard(EditorDocument *editor,
-                                   int *eeprom_error,
-                                   int *editor_loaded,
-                                   AppEditorSource source,
-                                   AppState *state)
+static int app_handle_vi_keyboard(EditorDocument *editor,
+                                  int *eeprom_error,
+                                  int *editor_loaded,
+                                  AppEditorSource source,
+                                  AppState *state)
 {
     unsigned char code;
     unsigned int count;
@@ -908,6 +926,9 @@ static void app_handle_vi_keyboard(EditorDocument *editor,
     while (count < KEYBOARD_DRAIN_LIMIT &&
            *state == APP_STATE_EDITOR_COMMAND &&
            keyboard_read(&code)) {
+        if (code == KEYBOARD_CODE_ESCAPE) {
+            return 1;
+        }
         if (code < 0x80u) {
             app_handle_vi_command_code(editor,
                                        code,
@@ -918,6 +939,8 @@ static void app_handle_vi_keyboard(EditorDocument *editor,
         }
         ++count;
     }
+
+    return 0;
 }
 
 static unsigned int app_count_text_lines(const char *text, unsigned int length)
@@ -1046,16 +1069,23 @@ static int app_handle_typing_game_input(const KeyState *keys,
                                         AppState *state)
 {
     TypingGameAnswerResult answer_result;
-    int input_changed;
+    int input_events;
 
-    input_changed = editor_input_handle_keys(&app_work_area.typing_game.input,
-                                             keys,
-                                             ascii,
-                                             nav_mode,
-                                             0);
-    input_changed |= editor_input_drain_keyboard(
+    input_events = 0;
+    if (editor_input_handle_keys(&app_work_area.typing_game.input,
+                                 keys,
+                                 ascii,
+                                 nav_mode,
+                                 0)) {
+        input_events |= EDITOR_INPUT_EVENT_CHANGED;
+    }
+    input_events |= editor_input_drain_keyboard(
         &app_work_area.typing_game.input,
         0);
+
+    if ((input_events & EDITOR_INPUT_EVENT_ESCAPE) != 0) {
+        return input_events;
+    }
 
     answer_result = typing_game_accept_if_answer_correct(
         &app_work_area.typing_game);
@@ -1068,7 +1098,7 @@ static int app_handle_typing_game_input(const KeyState *keys,
         app_update_typing_mismatch_signal(now_ticks);
     }
 
-    return input_changed;
+    return input_events;
 }
 
 /**
@@ -1121,6 +1151,9 @@ int main(void)
                                (switches & SW_INSERT_MASK) != 0);
 
         key_update(&keys);
+        if (!app_state_accepts_keyboard_text(state)) {
+            app_discard_keyboard_input();
+        }
         if (state == APP_STATE_MENU) {
             menu_selection = menu_update(&start_menu, &keys);
             if (menu_selection == APP_MENU_EDITOR) {
@@ -1257,7 +1290,7 @@ int main(void)
             } else {
                 unsigned int now_ticks;
                 unsigned int switch_input;
-                int input_changed;
+                int input_events;
 
                 now_ticks = app_timer_ticks();
                 switch_input = switches & SW_TYPING_INPUT_MASK;
@@ -1267,18 +1300,26 @@ int main(void)
                     app_typing_last_switch_input = switch_input;
                 }
 
-                input_changed =
+                input_events =
                     app_handle_typing_game_input(&keys,
                                                  ascii,
                                                  nav_mode,
                                                  now_ticks,
                                                  &state);
-                if (input_changed) {
+                if ((input_events & EDITOR_INPUT_EVENT_ESCAPE) != 0) {
+                    typing_game_pause_stopwatch(&app_work_area.typing_game,
+                                                now_ticks);
+                    app_reset_typing_error_signal();
+                    menu_init(&typing_menu, app_typing_menu_options);
+                    state = APP_STATE_TYPING_MENU;
+                } else if ((input_events & EDITOR_INPUT_EVENT_CHANGED) != 0) {
                     typing_game_start_stopwatch(&app_work_area.typing_game,
                                                 now_ticks);
                 }
-                typing_game_update_stopwatch(&app_work_area.typing_game,
-                                             now_ticks);
+                if (state != APP_STATE_TYPING_MENU) {
+                    typing_game_update_stopwatch(&app_work_area.typing_game,
+                                                 now_ticks);
+                }
 
                 if (state == APP_STATE_TYPING_DONE) {
                     typing_game_pause_stopwatch(&app_work_area.typing_game,
@@ -1287,7 +1328,7 @@ int main(void)
                     app_start_info_message(app_typing_result_message,
                                            APP_STATE_MENU,
                                            &state);
-                } else {
+                } else if (state == APP_STATE_TYPING_GAME) {
                     app_display_typing_game(
                         ascii,
                         nav_mode,
@@ -1334,11 +1375,17 @@ int main(void)
                                            &state);
                 }
                 if (state == APP_STATE_EDITOR_COMMAND) {
-                    app_handle_vi_keyboard(&editor,
-                                           &eeprom_error,
-                                           &editor_loaded,
-                                           app_editor_source,
-                                           &state);
+                    if (app_handle_vi_keyboard(&editor,
+                                               &eeprom_error,
+                                               &editor_loaded,
+                                               app_editor_source,
+                                               &state)) {
+                        menu_init(
+                            &editor_menu,
+                            app_editor_menu_options_for_source(
+                                app_editor_source));
+                        state = APP_STATE_EDITOR_MENU;
+                    }
                 }
                 if (state == APP_STATE_EDITOR_COMMAND) {
                     display_show_vi_command(app_vi_command);
@@ -1362,14 +1409,24 @@ int main(void)
             if (key_pressed_edge(&keys, KEY_MASK_0)) {
                 app_start_vi_command(&state);
             } else {
+                int input_events;
+
                 editor_input_handle_keys(&editor, &keys, ascii, nav_mode, 1);
-                editor_input_drain_keyboard(&editor, 1);
-                display_update_with_markers(&editor,
-                                            ascii,
-                                            nav_mode,
-                                            eeprom_error,
-                                            app_editor_top_marker(app_editor_source),
-                                            EDITOR_BOTTOM_MARKER);
+                input_events = editor_input_drain_keyboard(&editor, 1);
+                if ((input_events & EDITOR_INPUT_EVENT_ESCAPE) != 0) {
+                    menu_init(
+                        &editor_menu,
+                        app_editor_menu_options_for_source(app_editor_source));
+                    state = APP_STATE_EDITOR_MENU;
+                } else {
+                    display_update_with_markers(
+                        &editor,
+                        ascii,
+                        nav_mode,
+                        eeprom_error,
+                        app_editor_top_marker(app_editor_source),
+                        EDITOR_BOTTOM_MARKER);
+                }
             }
         }
 

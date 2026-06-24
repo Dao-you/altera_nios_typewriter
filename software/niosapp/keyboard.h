@@ -9,6 +9,7 @@
 #define KEYBOARD_CODE_RIGHT 0x81u
 #define KEYBOARD_CODE_UP    0x82u
 #define KEYBOARD_CODE_DOWN  0x83u
+#define KEYBOARD_CODE_ESCAPE 0x84u
 
 /**
  * Reset the software-to-hardware acknowledge line.

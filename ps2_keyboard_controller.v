@@ -1,11 +1,16 @@
-module ps2_keyboard_controller (
+module ps2_keyboard_controller #(
+    parameter [22:0] INPUT_ACTIVITY_HOLD_CYCLES = 23'd5000000
+) (
     input        clk,
     input        reset_n,
     input        ps2_clk,
     input        ps2_dat,
     input        keyboard_ack,
     output [7:0] keyboard_data,
-    output [7:0] keyboard_status
+    output [7:0] keyboard_status,
+    output reg   keyboard_detected,
+    output reg   keyboard_activity,
+    output       keyboard_caps_lock
 );
 
     wire [7:0] scan_code;
@@ -24,12 +29,39 @@ module ps2_keyboard_controller (
     wire       fifo_overflow;
     wire       fifo_pop;
     reg        receiver_error_latched;
+    reg [22:0] input_activity_count;
+
+    assign keyboard_caps_lock = caps_lock;
 
     always @(posedge clk or negedge reset_n) begin
         if (!reset_n) begin
             receiver_error_latched <= 1'b0;
         end else if (frame_error) begin
             receiver_error_latched <= 1'b1;
+        end
+    end
+
+    /*
+     * A receive-only PS/2 interface cannot actively poll for a keyboard.
+     * Treat the first valid frame as detection, and stretch each valid-frame
+     * pulse to 100 ms at 50 MHz so board-level activity is visible.
+     */
+    always @(posedge clk or negedge reset_n) begin
+        if (!reset_n) begin
+            keyboard_detected <= 1'b0;
+            keyboard_activity <= 1'b0;
+            input_activity_count <= 23'd0;
+        end else if (scan_code_valid) begin
+            keyboard_detected <= 1'b1;
+            keyboard_activity <= 1'b1;
+            input_activity_count <= INPUT_ACTIVITY_HOLD_CYCLES - 1'b1;
+        end else if (input_activity_count != 23'd0) begin
+            input_activity_count <= input_activity_count - 1'b1;
+            if (input_activity_count == 23'd1) begin
+                keyboard_activity <= 1'b0;
+            end
+        end else begin
+            keyboard_activity <= 1'b0;
         end
     end
 

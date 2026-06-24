@@ -12,6 +12,7 @@ module ps2_ascii_mapper (
     localparam KEYBOARD_CODE_RIGHT = 8'h81;
     localparam KEYBOARD_CODE_UP    = 8'h82;
     localparam KEYBOARD_CODE_DOWN  = 8'h83;
+    localparam KEYBOARD_CODE_ESCAPE = 8'h84;
 
     wire letter_upper;
 
@@ -86,6 +87,7 @@ module ps2_ascii_mapper (
                 8'h4A: ascii_code = shift_active ? 8'h3F : 8'h2F; /* / ? */
 
                 /* Controls used by the existing editor core */
+                8'h76: ascii_code = KEYBOARD_CODE_ESCAPE; /* Escape */
                 8'h29: ascii_code = 8'h20; /* Space */
                 8'h5A: ascii_code = 8'h0A; /* Enter -> LF */
                 8'h66: ascii_code = 8'h08; /* Backspace */

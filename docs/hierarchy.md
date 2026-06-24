@@ -102,7 +102,8 @@ flowchart LR
     LEDRCTRL --> LEDRIO
     NIOS --> LCDIO
     NIOS --> HEXIO
-    NIOS --> LEDGIO
+    NIOS -->|LEDG0/1/5/6/7 + LEDG8| LEDGIO
+    KBDCTRL -->|LEDG2 detected / LEDG3 activity / LEDG4 caps| LEDGIO
     NIOS --> SDGLUE
     SDGLUE <--> SDIO
     NIOS --> EEPGLUE
@@ -115,7 +116,7 @@ flowchart LR
 - `SW[17:0]` 全部輸入 Nios PIO。C 端再切出不同用途：`SW[6:0]` 是 7-bit ASCII；`SW16` 是 Insert / Overwrite；`SW17` 是左右移動或上下移動的 nav mode。
 - `KEY[3:0]` 輸入 Nios PIO。DE2-115 的 KEY 通常是 active-low，因此 C 端 `key.c` 會先反相，再做 debounce 與 pressed-edge 偵測，避免長按或機械彈跳造成多次觸發。
 - `LEDR[17:0]` 不直接由 Nios PIO 接到板子，而是先進入 `ledr_flag_controller`。這樣可以在一般情況讓 C 控制 LEDR progress，也可以在 SD/EEPROM blocking I/O 期間切換給 Verilog 產生硬體跑馬燈。
-- `LEDG[7:0]` 由一般 LEDG PIO 輸出；`LEDG[8]` 由獨立 1-bit PIO 輸出，主要給 typing game 秒閃提示使用。
+- `LEDG0/1/5/6/7` 由一般 LEDG PIO 對應位元輸出；`LEDG2/3/4` 由 PS/2 controller 分別顯示 reset 後曾收到有效 frame、約 100 ms 輸入活動、Caps Lock toggle 狀態；`LEDG[8]` 由獨立 1-bit PIO 輸出，主要給 typing game 秒閃提示使用。
 - `HEX0~HEX7` 的 PIO 是 8-bit，但 top-level 只接 `[6:0]` 到七段顯示器。小數點 dp 若未使用，可以不接或固定關閉。
 - LCD 使用 8-bit data PIO 與 5-bit control PIO。control bit0~4 分別是 `RS`、`RW`、`EN`、`ON`、`BLON`，由 `lcd.c` 產生命令與資料寫入時序。
 - EEPROM SDA 使用 open-drain 類接法，只能 drive low 或 release high-Z；讀取時由 `PIO_IN_EEP_SDA_IN_BASE` 取得 SDA 狀態。
@@ -192,6 +193,10 @@ flowchart LR
     FIFO --> PIO[keyboard_pio_interface]
     PIO -->|data/status| Nios[Nios C keyboard.c]
     Nios -->|ack| PIO
+    RX -->|valid frame| Detect[detected + 100 ms activity]
+    Parser -->|caps_lock| Caps[Caps Lock status]
+    Detect --> LEDG23[LEDG2 / LEDG3]
+    Caps --> LEDG4[LEDG4]
 ```
 
 模組職責：
@@ -201,6 +206,7 @@ flowchart LR
 - `ps2_ascii_mapper.v` 負責把 make code 轉成 C 端能理解的 byte。例如英文字母會依 Shift / Caps Lock 轉成大小寫；Enter 轉成 LF `0x0A`；Backspace 轉成 `0x08`；Delete 轉成 `0x7F`；方向鍵轉成 `0x80` 到 `0x83` 的 control byte。
 - `keyboard_fifo.v` 是 16-byte FIFO。它的目的不是大量緩衝，而是避免 C 主迴圈剛好正在更新 LCD、寫 EEPROM 或等 SD card 回應時漏掉使用者快速按鍵。
 - `keyboard_pio_interface.v` 將 FIFO front data、empty/full/overflow 狀態包成 PIO 訊號，並接收 C 端送回來的 ack pulse。
+- `ps2_keyboard_controller.v` 另外把硬體狀態直接送到 LEDG2~LEDG4：第一個有效 frame 會鎖存 keyboard detected；每個有效 frame 會產生約 100 ms 可視 activity；Caps Lock 直接使用 parser 的 toggle 狀態。由於 PS/2 目前只接收、不主動送命令，拔除後 detected 不會自行熄滅，需 board reset 清除。
 
 ### 4.1 PS/2 keyboard PIO handshake
 
@@ -375,7 +381,7 @@ stateDiagram-v2
 
 首頁選單包含 `EEPROM EDITOR`、`SD EDITOR`、`SD QUESTIONS`、`TYPING GAME`。當使用者選擇 EEPROM editor，系統會先初始化 EEPROM 並嘗試讀取固定 binary layout；當使用者選擇 SD editor，系統會從 SD card 讀取 `EDITOR.TXT` 並轉入 `EditorDocument`；當選擇 SD QUESTIONS，則會讀取並瀏覽 `QUESTION.TXT`；當選擇 TYPING GAME，則會進入大小寫模式選單、題數選單、ready 畫面，再開始遊戲。
 
-Editor 主畫面中，`KEY0` 進入 VI command，`KEY1` 寫入目前 `SW[6:0]` ASCII，`KEY3/KEY2` 依 `SW17` 決定左右或上下移動。VI command 支援 `w`、`q`、`wq`、`x`、`e!`，也能透過 `KEY2` 進入 editor menu。當操作需要確認，例如 dirty document 離開、覆寫 SD 檔案、清空全部文字，就會切換到 confirm modal。
+Editor 主畫面中，`KEY0` 進入 VI command，`KEY1` 寫入目前 `SW[6:0]` ASCII，`KEY3/KEY2` 依 `SW17` 決定左右或上下移動。VI command 支援 `w`、`q`、`wq`、`x`、`e!`，也能透過 `KEY2` 進入 editor menu。PS/2 Esc 在 editor 主畫面與 VI command 直接開啟 editor menu；打字遊戲輸入畫面則開啟既有暫停選單。非文字輸入狀態會丟棄鍵盤 FIFO，避免延遲觸發。當操作需要確認，例如 dirty document 離開、覆寫 SD 檔案、清空全部文字，就會切換到 confirm modal。
 
 ---
 

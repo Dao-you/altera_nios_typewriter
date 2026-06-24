@@ -27,6 +27,7 @@ INPUTS:
     0x0A executes the command.
   - PS/2 printable keys append directly. PS/2 Backspace/Delete delete a
     command character, and Enter executes the command.
+  - PS/2 Esc opens the horizontal editor menu.
   - KEY0 executes the command. An empty command returns to editor mode.
   - KEY2 opens the horizontal editor menu.
   - Commands: w saves, q quits, wq and x save then quit, e! restores the whole
@@ -70,7 +71,7 @@ INPUTS:
     existing 5 Hz error blink for two seconds while input remains editable.
   - After the final answer, the shared OK-message UI shows CPM with two
     decimal places and KEY0 OK.
-  - KEY0 opens the typing-game menu: Restart, Continue, Quit. KEY1 confirms
+  - KEY0 or PS/2 Esc opens the typing-game menu: Restart, Continue, Quit. KEY1 confirms
     the selected menu option.
 
 OUTPUTS:
@@ -110,6 +111,9 @@ OUTPUTS:
   display.c falls back to the older software-driven marquee.
 - LEDG0: insert mode.
 - LEDG1: navigation mode.
+- LEDG2: PS/2 keyboard detected after the first valid frame since reset.
+- LEDG3: PS/2 frame activity, stretched to about 100 ms for visibility.
+- LEDG4: PS/2 Caps Lock toggle state.
 - LEDG5: EEPROM error.
 - LEDG6: current-line text remains hidden to the right of the LCD viewport.
 - LEDG7: unsaved changes.
@@ -119,8 +123,8 @@ OUTPUTS:
   - LEDR: current-question progress over the selected question count. A wrong
     answer whose length is at least the question length temporarily overrides
     this with the existing 5 Hz error blink for two seconds.
-  - LEDG7..LEDG0: normal status indicators, including insert mode, navigation
-    mode, and answer viewport overflow.
+  - LEDG0/1/5/6/7: normal Nios status indicators.
+  - LEDG2/3/4: hardware PS/2 detected, input activity, and Caps Lock status.
   - LEDG8: separate one-bit PIO, blinking once per second as the mm:ss colon.
   - HEX7..HEX6: current question number for three seconds, then total question
     count for one second.
@@ -143,7 +147,8 @@ SOURCE FILES:
 - editor.c/.h: document buffer and editing operations.
 - editor_input.c/.h: shared dispatch from debounced SW/KEY and PS/2 decoded
   bytes into EditorDocument operations. The EEPROM editor allows LF; the typing
-  game reuses the same path with LF disabled for single-line answers.
+  game reuses the same path with LF disabled for single-line answers. Esc opens
+  the existing editor or typing-game menu only on text-input screens.
 - typing_game.c/.h: typing-game question sampling, case-mode conversion,
   answer comparison, round state, restart, and Qsys-timer-backed stopwatch
   state.

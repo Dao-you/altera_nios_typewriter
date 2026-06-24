@@ -81,14 +81,20 @@ int editor_input_drain_keyboard(EditorDocument *editor, int allow_newline)
 {
     unsigned char code;
     unsigned int count;
-    int changed;
+    int events;
 
-    changed = 0;
+    events = 0;
     count = 0;
     while (count < EDITOR_INPUT_DRAIN_LIMIT && keyboard_read(&code)) {
-        changed |= editor_input_apply_code(editor, code, allow_newline);
+        if (code == KEYBOARD_CODE_ESCAPE) {
+            events |= EDITOR_INPUT_EVENT_ESCAPE;
+            break;
+        }
+        if (editor_input_apply_code(editor, code, allow_newline)) {
+            events |= EDITOR_INPUT_EVENT_CHANGED;
+        }
         ++count;
     }
 
-    return changed;
+    return events;
 }

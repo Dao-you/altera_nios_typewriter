@@ -39,7 +39,7 @@ EEPROM 儲存
 | `SW15`       | Nios II reset          | `0`：reset，`1`：run               |
 | `SW16`       | Insert / Overwrite 切換 | `0`：Overwrite，`1`：Insert        |
 | `SW17`       | 移動模式切換                | `0`：左右移動，`1`：上下移動             |
-| `KEY0`       | Editor menu           | 在 editor 主畫面開啟共用選單；依目前 editor 來源執行 EEPROM / SD 儲存選項 |
+| `KEY0` / PS/2 `Esc` | Editor menu | 在 editor 可輸入文字畫面開啟共用選單；依目前 editor 來源執行 EEPROM / SD 儲存選項 |
 | `KEY1`       | Write                 | 寫入目前 ASCII；`0x08` BS，`0x0A` LF，`0x7F` DEL |
 | `KEY3`       | 往前 / 往上               | 依照 `SW17` 決定游標左移或上一行          |
 | `KEY2`       | 往後 / 往下               | 依照 `SW17` 決定游標右移或下一行          |
@@ -51,6 +51,9 @@ EEPROM 儲存
 | `LEDR[17:0]` | 目前行進度條 / blocking activity | 平時依目前行 / 文件總行數，從 `LEDR17` 往 `LEDR0` 亮；最後一行才亮 `LEDR0`。EEPROM 讀寫與 SD 讀取期間暫時使用 `LEDR17..LEDR1` 單燈跑馬燈 |
 | `LEDG0`      | Insert / Overwrite 狀態 | 反映 `SW16`，`0`：Overwrite，`1`：Insert |
 | `LEDG1`      | 移動模式狀態                | `0`：左右，`1`：上下                 |
+| `LEDG2`      | PS/2 鍵盤偵測              | reset 後收到有效 PS/2 frame 即保持亮燈 |
+| `LEDG3`      | PS/2 輸入活動              | 有效 PS/2 frame 後亮約 100 ms |
+| `LEDG4`      | Caps Lock                | Caps Lock toggle 開啟時亮 |
 | `LEDG5`      | Storage error         | 目前 editor 來源的 EEPROM / SD 讀寫或文字截斷錯誤 |
 | `LEDG6`      | LCD 右側未顯示提示         | 目前 LCD 視窗右側仍有當前行文字未顯示           |
 | `LEDG7`      | Unsaved 狀態            | 文件內容已修改但尚未完成儲存                |
@@ -71,7 +74,7 @@ EEPROM 儲存
 | SW PIO                | 讀取 `SW[17:0]`                   |
 | KEY PIO               | 讀取 `KEY[3:0]`                   |
 | LEDR PIO              | 控制 `LEDR[17:0]`                 |
-| LEDG PIO              | 控制 `LEDG[7:0]`                  |
+| LEDG PIO              | 控制 `LEDG0/1/5/6/7`；LEDG2~4 由 PS/2 controller 覆蓋 |
 | HEX0~HEX7 PIO         | 控制 8 個七段顯示器                     |
 | LCD DATA PIO          | 控制 LCD 資料線                      |
 | LCD CTRL PIO          | 控制 LCD RS / RW / EN / ON / BLON |
@@ -333,6 +336,9 @@ LCD cursor 會放在 `document[current_line][cursor_col]` 的位置。Insert 模
 | `LEDR[17:0]` | 平時顯示目前行 / 文件總行數進度，從 LEDR17 亮到 LEDR0；EEPROM 讀寫與 SD 讀取時暫時以 LEDR17..LEDR1 顯示跑馬燈 |
 | `LEDG0`      | Insert / Overwrite |
 | `LEDG1`      | 左右 / 上下移動          |
+| `LEDG2`      | PS/2 鍵盤已偵測          |
+| `LEDG3`      | PS/2 輸入活動 pulse     |
+| `LEDG4`      | Caps Lock          |
 | `LEDG5`      | Storage error      |
 | `LEDG6`      | 目前 LCD 視窗右側仍有當前行文字未顯示 |
 | `LEDG7`      | Unsaved            |

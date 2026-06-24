@@ -19,11 +19,11 @@
 - HEX 以十進位顯示目前行號、游標位置、總行數；`HEX1~HEX0` 以十六進位顯示目前 ASCII。
 - LEDR 平時顯示目前行在文件總行數中的位置，從 `LEDR17` 往 `LEDR0` 亮；只有目前行是最後一行時 `LEDR0` 才亮。
 - editor 選單確認 `Save to ROM` 且實際寫入 EEPROM 期間，LEDR 暫時改為 Verilog 控制的單燈跑馬燈；這只是儲存中視覺效果，不代表儲存進度。
-- LEDG 顯示模式、目前 LCD 視窗右側是否還有未顯示內容、unsaved 狀態。
+- LEDG 顯示模式、PS/2 鍵盤偵測/輸入/Caps Lock、目前 LCD 視窗右側是否還有未顯示內容、unsaved 狀態。
 - 文件先存在 C 程式的 Document Buffer，後續寫入 DE2-115 板上 24LC32 類 EEPROM。
 - PS/2 鍵盤由 Verilog 接收 scan code 並轉成 ASCII / editor control byte，透過 Qsys PIO FIFO 介面交給 Nios II C 程式，原本 SW/KEY 測試輸入仍保留。
 - SD 卡以 Qsys `altera_avalon_spi` SPI mode 讀寫 FAT16/FAT32 根目錄短檔名。開機選單確認 `SD QUESTIONS` 會讀 `QUESTION.TXT` 並在 LCD 顯示內容，`KEY0` 返回首頁選單；開機選單確認 `SD EDITOR` 會載入固定短檔名 `EDITOR.TXT` 到 editor。EEPROM editor 的 `Save as SD` 也寫入 `EDITOR.TXT`，若檔案已存在會用既有 confirmation UI 顯示 `Overwrite SD?`，`KEY1` 確認覆寫、`KEY0` 取消。SD editor 的 `Save` 直接覆寫 `EDITOR.TXT`，`Save as EEPROM` 會先用 confirmation UI 顯示 `Overwrite ROM?`。
-- 打字速度遊戲從開機選單 `TYPING GAME` 進入。先用共用選單選題目大小寫模式：`Capitalized` 會將字母轉小寫後把第一個字母轉大寫，`Default` 保留題目原文，`Random Caps` 會將字母轉小寫後在 runtime 隨機把每個字母轉大寫；非字母不轉換，各選單最後都有 `Quit`。接著用共用選單選題目數量，5 題一級距、最多 50 題。選完後 LCD 提示關閉 `SW[6:0]`，`KEY1` 開始、`KEY0` 返回；開始時從 SD `QUESTION.TXT` 非空行隨機抽取所選題數，讀取期間使用 loading 燈號。遊戲中共用 editor 的 SW/KEY/PS/2 輸入派發，但答案限制為單行，完全輸入正確後自動進下一題；字數達到或超過題目長度但內容不符時，LEDR 顯示 2 秒既有 5 Hz error effect；`KEY0` 進入 `Restart` / `Continue` / `Quit` 暫停選單。LCD 第一列顯示輸入、第二列顯示題目；秒表使用 Qsys `timer` 作為 HAL system clock，從第一個 `SW[6:0]` 變化或第一個實際輸入動作開始。LEDR 顯示題數進度，LEDG7..LEDG0 保持 Insert / 移動模式 / overflow 等狀態燈，獨立 `LEDG8` 每秒閃爍作為 `mm:ss` 冒號；HEX7~HEX6 每四秒循環顯示三秒目前題號與一秒總題數，HEX5~HEX4 顯示分鐘，HEX3~HEX2 顯示秒數，HEX1~HEX0 顯示 `SW[6:0]` 十六進位。完成後以一般 UI 訊息顯示 `CPM n.nn` 與 `KEY0 OK`，按 `KEY0` 回首頁。
+- 打字速度遊戲從開機選單 `TYPING GAME` 進入。先用共用選單選題目大小寫模式：`Capitalized` 會將字母轉小寫後把第一個字母轉大寫，`Default` 保留題目原文，`Random Caps` 會將字母轉小寫後在 runtime 隨機把每個字母轉大寫；非字母不轉換，各選單最後都有 `Quit`。接著用共用選單選題目數量，5 題一級距、最多 50 題。選完後 LCD 提示關閉 `SW[6:0]`，`KEY1` 開始、`KEY0` 返回；開始時從 SD `QUESTION.TXT` 非空行隨機抽取所選題數，讀取期間使用 loading 燈號。遊戲中共用 editor 的 SW/KEY/PS/2 輸入派發，但答案限制為單行，完全輸入正確後自動進下一題；字數達到或超過題目長度但內容不符時，LEDR 顯示 2 秒既有 5 Hz error effect；`KEY0` 進入 `Restart` / `Continue` / `Quit` 暫停選單。LCD 第一列顯示輸入、第二列顯示題目；秒表使用 Qsys `timer` 作為 HAL system clock，從第一個 `SW[6:0]` 變化或第一個實際輸入動作開始。LEDR 顯示題數進度，LEDG0/1/6 顯示 Insert / 移動模式 / overflow，LEDG2/3/4 顯示 PS/2 detected/activity/Caps Lock，獨立 `LEDG8` 每秒閃爍作為 `mm:ss` 冒號；HEX7~HEX6 每四秒循環顯示三秒目前題號與一秒總題數，HEX5~HEX4 顯示分鐘，HEX3~HEX2 顯示秒數，HEX1~HEX0 顯示 `SW[6:0]` 十六進位。完成後以一般 UI 訊息顯示 `CPM n.nn` 與 `KEY0 OK`，按 `KEY0` 回首頁。
 
 ## 目前狀態
 
@@ -145,7 +145,7 @@
 - `SD_CLK` / `SD_CMD` / `SD_DAT[3:0]` 接 Qsys `spi_sdcard_external_*`，目前用 SD SPI mode：`SCLK -> SD_CLK`、`MOSI -> SD_CMD`、`MISO <- SD_DAT[0]`、`SS_n -> SD_DAT[3]`，`SD_DAT[1]` / `SD_DAT[2]` 先 release high-Z，`SD_WP_N` 只保留為 top-level input。
 - `SW[17:0]` 全部輸入 Nios PIO；C 端使用 `SW17` 作為移動模式、`SW16` 作為 Insert / Overwrite、`SW[6:0]` 作為 ASCII。
 - `KEY[3:0]` 全部輸入 Nios PIO。
-- `LEDR[17:0]` 由 `ledr_flag_controller.v` 輸出；`pio_out_ledr_flag` bit0 為 `1` 時選擇 Nios `PIO_OUT_LEDR`，bit0 為 `0` 時由 Verilog 燈效控制。`LEDG[7:0]` 由 `pio_out_ledg` 8-bit PIO 直接輸出；`LEDG[8]` 由獨立 `pio_out_ledg8` 1-bit PIO 輸出，專供打字遊戲秒閃冒號使用。
+- `LEDR[17:0]` 由 `ledr_flag_controller.v` 輸出；`pio_out_ledr_flag` bit0 為 `1` 時選擇 Nios `PIO_OUT_LEDR`，bit0 為 `0` 時由 Verilog 燈效控制。`LEDG0`、`LEDG1`、`LEDG5`、`LEDG6`、`LEDG7` 由 `pio_out_ledg` 8-bit PIO 對應位元輸出；`LEDG2`、`LEDG3`、`LEDG4` 由 `ps2_keyboard_controller` 分別輸出 keyboard detected、約 100 ms input activity、Caps Lock 狀態；`LEDG8` 由獨立 `pio_out_ledg8` 1-bit PIO 輸出，專供打字遊戲秒閃冒號使用。
 - `pio_out_ledr_flag` 定義請同步參考 `docs/ledr_flag.md` 與 `software/niosapp/display.h`；目前 bit0 為 Nios/Verilog source select，bit1 為 `LEDR17` 到 `LEDR0` 跑馬燈，bit2 為反向跑馬燈，bit3 為 VI command / 一般確認 2 Hz 全燈閃爍，bit4 為錯誤 5 Hz 全燈閃爍，bit5..7 保留。
 - HEX PIO 是 8 bit，但 `top.v` 只接 `hex*_export[6:0]` 到 `HEX*`，bit 7 可當小數點保留位或忽略。
 - LCD ctrl bit mapping：
@@ -157,6 +157,7 @@
 - EEPROM SDA 是 open-drain 類接法：只能 drive low 或 release high-Z，不能主動 drive high。
 - `UART_TXD` 目前固定為 `1'b1`，不要假設板上 UART 已接到 Nios。
 - `keyboard_status` bit 0 表示 FIFO 有資料，bit 1 表示 FIFO full，bit 2 表示 FIFO overflow/error；C 端讀完 `keyboard_data` 後 pulse `keyboard_ack` 取下一筆。
+- PS/2 controller 是 receive-only，無法在鍵盤完全靜止時主動輪詢插拔狀態；`LEDG2` 因此定義為 reset 後曾收到有效 PS/2 frame，拔除後需 reset 才會清除。`LEDG3` 將每個有效 frame 的活動 pulse 延長約 100 ms，`LEDG4` 直接反映 parser 的 Caps Lock toggle 狀態。
 - SD card `spi_sdcard` 目前只用 C 端輪詢讀寫，不使用 interrupt；`sdcard.c` 只支援 FAT16/FAT32 根目錄 8.3 短檔名，`QUESTION.TXT` 為讀取題庫/檢視用，`EDITOR.TXT` 為 SD editor 固定讀寫檔。`EDITOR.TXT` writer 會在覆寫既有檔案且 cluster chain 足夠時原地重用，只寫 file size 實際覆蓋的 sectors；建檔時 FAT32 會優先使用 FSInfo next-free hint，避免 16GB 等大卡從 FAT 開頭慢速掃描。
 
 ## C 程式開發約定
@@ -201,7 +202,7 @@ Nios II app RAM 很緊，app-only build 曾只剩約 4 KiB stack + heap。不要
 
 `nav_mode` 不存入 `EditorDocument`，由 `main.c` 每輪直接讀取 `SW17`。`insert_mode` 由 `main.c` 每輪讀取 `SW16` 後用 `editor_set_insert_mode()` 更新，不因切換模式設定 dirty。
 
-PS/2 鍵盤輸入不直接修改 `EditorDocument` 結構。Verilog mapper 輸出 printable ASCII、`0x08` Backspace、`0x0A` Enter/LF、`0x7F` Delete；方向鍵使用 `keyboard.h` 的 internal control byte `0x80..0x83`，由 `editor_input.c` dispatch 成 `editor_move_left/right/up/down()`。
+PS/2 鍵盤輸入不直接修改 `EditorDocument` 結構。Verilog mapper 輸出 printable ASCII、`0x08` Backspace、`0x0A` Enter/LF、`0x7F` Delete；方向鍵使用 `keyboard.h` 的 internal control byte `0x80..0x83`，Esc 使用 `0x84`。`editor_input.c` 會 dispatch 方向鍵，並把 Esc 回報給 `main.c`；Esc 只在 editor、VI command 與打字遊戲輸入畫面開啟各自既有選單，其他狀態會丟棄鍵盤輸入。
 
 PIO 存取請使用 Altera HAL：
 
@@ -392,7 +393,7 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - 從 EEPROM editor、SD 題目檢視、SD editor 或打字遊戲返回首頁選單時，HEX0~HEX7 會由 `main.c` 的外層首頁 transition 統一清空，不保留功能畫面的行號、ASCII、題號或秒表狀態。
 - 開機選單確認 `TYPING GAME` 會先進大小寫模式選單：`Capitalized`、`Default`、`Random Caps`、`Quit`；再進題數選單：`5 Questions` 到 `50 Questions`，以 5 題為級距，最後一項 `Quit`。選完後顯示 `SW6-0 OFF` 與 `KEY1GO KEY0EXIT`；`SW[6:0]` 全關後按 `KEY1` 讀取 SD `QUESTION.TXT` 並隨機抽取所選題數，讀取期間 LEDR 使用 activity marquee。若題目不足所選題數，顯示錯誤訊息。
 - 打字遊戲中 LCD 第一列顯示輸入 viewport 與 cursor、第二列顯示題目 viewport；使用者可用 SW[6:0]+KEY1 或 PS/2 鍵盤輸入，Backspace/Delete 與左右移動可修正答案，LF/Enter 不會建立新行；答案完全相同後立即自動進入下一題。
-- 打字遊戲中秒表從第一個 `SW[6:0]` 變化或第一個實際輸入動作開始；LEDR 依目前題號顯示進度，LEDG7..LEDG0 保持 Insert / 移動模式 / overflow 等狀態燈，獨立 LEDG8 每秒閃爍作為冒號；HEX7~HEX6 每四秒循環顯示三秒目前題號與一秒總題數，HEX5~HEX4 顯示分鐘，HEX3~HEX2 顯示秒數，HEX1~HEX0 顯示 `SW[6:0]` 十六進位。
+- 打字遊戲中秒表從第一個 `SW[6:0]` 變化或第一個實際輸入動作開始；LEDR 依目前題號顯示進度，LEDG0/1/6 保持 Insert / 移動模式 / overflow，LEDG2/3/4 保持 PS/2 detected/activity/Caps Lock，獨立 LEDG8 每秒閃爍作為冒號；HEX7~HEX6 每四秒循環顯示三秒目前題號與一秒總題數，HEX5~HEX4 顯示分鐘，HEX3~HEX2 顯示秒數，HEX1~HEX0 顯示 `SW[6:0]` 十六進位。
 - 打字遊戲中若輸入字數已達到或超過目前題目長度但內容不相符，LEDR 會暫時切到既有 5 Hz 錯誤閃爍 2 秒；使用者可繼續用 Backspace/Delete 或移動游標修正輸入。
 - 打字遊戲中按 `KEY0` 進入 `Restart` / `Continue` / `Quit` 選單；`Restart` 保留目前抽出的題目並歸零時間，`Continue` 回遊戲且不累加暫停期間時間，`Quit` 回首頁。
 - 打字遊戲完成後以一般 UI 訊息顯示 `CPM n.nn` 與置中的 `KEY0 OK`；CPM 由本輪所選題目總字元數與完成秒表計算並四捨五入到小數點後兩位，按 `KEY0` 回首頁。
@@ -407,12 +408,12 @@ make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= app
 - `SW[16]` 可即時切換 Overwrite / Insert，且 LEDG0 反映目前模式。
 - KEY active-low 反相與 edge detection 正確，一次按下只觸發一次。
 - HEX active-low 顯示正確，未用位可 blank。
-- LEDG0/LEDG1/LEDG6/LEDG7 狀態符合計畫；LEDG6 只在目前 LCD 視窗右側仍有當前行文字未顯示時亮。
+- LEDG0/LEDG1/LEDG5/LEDG6/LEDG7 軟體狀態符合計畫；LEDG6 只在目前 LCD 視窗右側仍有當前行文字未顯示時亮。PS/2 reset 後收到有效 frame 時 LEDG2 保持亮，持續輸入時 LEDG3 以約 100 ms 可視 pulse 閃動，Caps Lock 開啟時 LEDG4 亮。
 - EEPROM editor 游標在第 0 行時，LCD 第一列顯示置中的閃爍 `-----EEPROM-----` marker，第二列顯示文件第 0 行；游標移到其他行後 marker 消失，畫面回到目前行/下一行 layout。
 - LCD 游標在目前編輯位置；EEPROM editor 第 0 行中游標位於第二列，其他行位於一般 editor layout 的目前行列，Insert 模式為軟體閃爍底線游標，Overwrite 模式為 LCD 內建整格閃爍游標。
 - 一般訊息 / 確認訊息 / 錯誤訊息的第二列提示文字與 `KEY0` / `KEY1` 返回邏輯正確，且 LEDR 分別以 2 Hz / 5 Hz 全燈閃爍。
 - PS/2 鍵盤可輸入英文字母、數字、空白與常用標點；Shift/Caps Lock 會影響大小寫，Shift 會產生符號。
-- PS/2 Enter / Backspace / Delete 分別觸發 LF、BS、DEL；方向鍵觸發游標左、右、上、下移動。
+- PS/2 Enter / Backspace / Delete 分別觸發 LF、BS、DEL；方向鍵觸發游標左、右、上、下移動。Esc 在 editor 主畫面或 VI command 開啟 editor 選單，在打字遊戲輸入畫面開啟 `Restart` / `Continue` / `Quit`，首頁與其他非輸入畫面不響應。
 - editor 選單確認 `Save to ROM`、`Save`、`Save as SD` 或 `Save as EEPROM` 並實際存檔時，`LEDR17..LEDR1` 會顯示單燈跑馬燈；這不是進度條，存檔結束後恢復目前行進度顯示。
 - editor 選單確認 `Save to ROM` 後 reset/重新上電可從 EEPROM 讀回文件。
 - SD editor 選單確認 `Save` 後重新進入 `SD EDITOR` 可從 SD `EDITOR.TXT` 讀回文件；EEPROM editor `Save as SD` 後也可用 `SD EDITOR` 讀回同一檔案。

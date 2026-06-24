@@ -5,6 +5,8 @@
 #include "key.h"
 
 #define EDITOR_INPUT_DRAIN_LIMIT 16u
+#define EDITOR_INPUT_EVENT_CHANGED 0x01u
+#define EDITOR_INPUT_EVENT_ESCAPE  0x02u
 
 /**
  * Apply one PS/2 decoded byte or ASCII/control byte to an editor document.
@@ -28,6 +30,9 @@ int editor_input_handle_keys(EditorDocument *editor,
 
 /**
  * Drain the small PS/2 hardware FIFO into editor actions.
+ *
+ * The return value is an EDITOR_INPUT_EVENT_* bit mask. Escape is reported to
+ * the caller and is never written into the document.
  */
 int editor_input_drain_keyboard(EditorDocument *editor, int allow_newline);
 
