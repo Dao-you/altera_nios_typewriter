@@ -330,9 +330,15 @@ $env:NIOS2_COMMAND_SHELL = "<path-to-Nios-II-Command-Shell.bat>"
 
 - `scripts/nios/01-qsys-quartus-program.ps1`：執行 `qsys-generate`、`quartus_sh --flow compile`，並用 `quartus_pgm` program `.sof`；若只要 generate/compile，可加 `-SkipProgram`。
 - `scripts/nios/02-bsp-generate.ps1`：依目前 `nios.sopcinfo` 重新產生 `software/niosapp_bsp`。
-- `scripts/nios/03-build-run-nios.ps1`：在 `software/niosapp` 執行 `make QSYS=0 MAKEABLE_LIBRARY_ROOT_DIRS= all`，再用 `nios2-download -g` run `niosapp.elf`；若只要 build，可加 `-NoRun`，若只要原本 app target，可加 `-MakeTarget app`。
+- `scripts/nios/03-build-run-nios.ps1`：fresh clone 時會先補產生被 Git 忽略的 BSP `HAL/` / `drivers/`，以相容 Quartus 13.1 舊 Cygwin 的參數 build `niosapp_bsp`，再於 `software/niosapp` 執行 app build，最後用 `nios2-download -g` run `niosapp.elf`。若只要 build 可加 `-NoRun`；確定 BSP 已完整產生時可加 `-SkipBspGenerate`。
 
 改 Qsys/memory map 後建議順序為 `01` -> `02` -> `03`。只改 Nios C app 時通常只需要跑 `03`；若只改 C 且 hardware bitstream 沒變，`03` 會假設板上已經是相容的 `.sof`。
+
+### 在其他電腦匯入 Eclipse
+
+不要提交或共用 Eclipse workspace 的 `.metadata`；其中包含建立 workspace 那台電腦的絕對路徑。新電腦應開啟 Quartus 13.1 內附的 **Nios II Software Build Tools for Eclipse**，建立空白 workspace，再用 `File -> Import -> General -> Existing Projects into Workspace`，以專案的 `software/` 為 root directory，同時匯入 `niosapp_bsp` 與 `niosapp`，且不要勾選 `Copy projects into workspace`。可攜的 Eclipse project nature 與 builder 設定位於兩個目錄各自的 `.project` / `.cproject`。
+
+第一次 build 前，先對 `niosapp_bsp` 執行 Nios II 的 Generate BSP；接著 Build `niosapp_bsp`，再 Build `niosapp`。若 Eclipse 右鍵完全沒有 Generate BSP 或 Run As -> Nios II Hardware，代表開啟的是一般 Eclipse、workspace 仍使用舊 `.metadata`，或專案不是透過 Existing Projects 匯入。命令列可直接執行 `scripts/nios/03-build-run-nios.ps1 -NoRun` 完成同一套 fresh-clone BSP generate/build 與 app build。
 
 每次改 Qsys：
 

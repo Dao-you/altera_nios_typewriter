@@ -30,6 +30,11 @@ Desktop.ini
 /*.ddb
 /no_rev.tis_db_list.ddb
 
+# Eclipse workspaces are machine-local and contain absolute project paths.
+# Import software/niosapp and software/niosapp_bsp into a fresh workspace.
+/eclipse-C/
+/.eclipse-workspace/
+
 # Quartus compilation output
 /output_files/
 
